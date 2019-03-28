@@ -29,4 +29,12 @@ interface WrapperInterface {
    */
   public function setSourceData($locationId, array $data);
 
+  /**
+   * Get hashes.
+   *
+   * @return array
+   *   Hashes grouped by location and class ID.
+   */
+  public function getHashes();
+
 }

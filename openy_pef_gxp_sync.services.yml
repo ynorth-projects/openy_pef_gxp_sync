@@ -14,6 +14,7 @@ services:
     class: Drupal\openy_pef_gxp_sync\OpenYPefGxpMappingRepository
     arguments:
       - '@entity_type.manager'
+      - '@logger.channel.openy_pef_gxp_sync'
   config.openy_pef_gxp_sync.immutable:
     class: \Drupal\Core\Config\ImmutableConfig
     factory: config.factory:get
@@ -45,6 +46,7 @@ services:
       - '@config.openy_pef_gxp_sync.immutable'
       - '@openy_pef_gxp_sync_mapping.repository'
       - '@entity_type.manager'
+      - '@config.factory'
   openy_pef_gxp_sync.syncer:
     class: Drupal\ymca_sync\Syncer
     arguments: []

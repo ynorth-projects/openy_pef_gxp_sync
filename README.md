@@ -19,3 +19,13 @@ While synchronisation in demo mode syncer proceeds the only first 5 class items 
 In order to switch production mode on set the next config:
 
     \Drupal::configFactory()->getEditable('openy_pef_gxp_sync.settings')->set('is_production', TRUE)->save(TRUE);
+
+### How the syncer works
+
+The syncer consists of the next steps:
+
+  1. Fetcher - fetches data from GroupEx API.
+  2. Wrapper - prepares data for saving (maps location ids, fixes title encoding problems, etc).
+  3. Wrapper - groups all items by Class ID and Location ID, calculates hash for all classes with the same ID and location.
+  4. Saver   - saves sessions and mapping entities.
+  5. Saver   - checks the hash and removes all entities for Class ID + Location. Create new ones.

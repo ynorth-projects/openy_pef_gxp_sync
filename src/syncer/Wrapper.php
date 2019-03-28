@@ -17,6 +17,20 @@ class Wrapper implements WrapperInterface {
   protected $sourceData;
 
   /**
+   * Processed data.
+   *
+   * @var array
+   */
+  protected $processedData = [];
+
+  /**
+   * Hashes.
+   *
+   * @var array
+   */
+  protected $hashes = [];
+
+  /**
    * {@inheritdoc}
    */
   public function getSourceData() {
@@ -34,7 +48,24 @@ class Wrapper implements WrapperInterface {
    * {@inheritdoc}
    */
   public function getProcessedData() {
-    return $this->process($this->getSourceData());
+    if (!empty($this->processedData)) {
+      return $this->processedData;
+    }
+
+    $items = $this->process($this->getSourceData());
+    $this->setProcessedData($items);
+
+    return $items;
+  }
+
+  /**
+   * Clean up broken titles.
+   *
+   * @param array $item
+   *   Schedules item.
+   */
+  private function cleanUpTitle(array &$item) {
+    $item['title'] = str_replace('Â', '', $item['title']);
   }
 
   /**
@@ -47,16 +78,54 @@ class Wrapper implements WrapperInterface {
    *   Processed data.
    */
   private function process(array $data) {
-    $processed = [];
-
+    // Group items at first.
+    $grouped = [];
     foreach ($data as $locationId => $locationItems) {
       foreach ($locationItems as $item) {
-        $item['ygtc_location_id'] = $locationId;
-        $processed[] = $item;
+        $grouped[$locationId][$item['class_id']][] = $item;
       }
     }
 
+    $hashes = [];
+    $processed = [];
+
+    foreach ($grouped as $locationId => $locationData) {
+      foreach ($locationData as $classId => $classData) {
+        $hashes[$locationId][$classId] = (string) crc32(serialize($classData));
+
+        foreach ($classData as $class) {
+          $this->cleanUpTitle($class);
+          $class['location_id'] = $locationId;
+          $processed[$locationId][$classId][] = $class;
+        }
+      }
+    }
+
+    $this->hashes = $hashes;
+
     return $processed;
+  }
+
+  /**
+   * Set processed data.
+   *
+   * @param array $data
+   *   Data.
+   */
+  public function setProcessedData(array $data) {
+    $this->processedData = $data;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getHashes() {
+    if (!empty($this->hashes)) {
+      return $this->hashes;
+    }
+
+    $this->getProcessedData();
+    return $this->getHashes();
   }
 
 }

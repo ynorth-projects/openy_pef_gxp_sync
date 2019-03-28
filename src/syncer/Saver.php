@@ -2,9 +2,11 @@
 
 namespace Drupal\openy_pef_gxp_sync\syncer;
 
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\ImmutableConfig;
-use Drupal\Core\Entity\EntityTypeManager;
-use Drupal\Core\Logger\LoggerChannel;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Logger\LoggerChannelInterface;
+use Drupal\datetime\Plugin\Field\FieldType\DateTimeItemInterface;
 use Drupal\node\Entity\Node;
 use Drupal\paragraphs\Entity\Paragraph;
 use Drupal\openy_pef_gxp_sync\Entity\OpenYPefGxpMapping;
@@ -39,16 +41,16 @@ class Saver implements SaverInterface {
   /**
    * Program subcategory.
    *
-   * @var integer
+   * @var int
    */
   protected $programSubcategory;
 
   /**
-   * Config.
+   * Syncer config.
    *
    * @var \Drupal\Core\Config\ImmutableConfig
    */
-  protected $config;
+  protected $syncerConfig;
 
   /**
    * Mapping repository.
@@ -65,67 +67,53 @@ class Saver implements SaverInterface {
   protected $entityTypeManager;
 
   /**
+   * Config factory.
+   *
+   * @var \Drupal\Core\Config\ConfigFactoryInterface
+   */
+  protected $configFactory;
+
+  /**
    * Saver constructor.
    *
    * @param \Drupal\openy_pef_gxp_sync\syncer\WrapperInterface $wrapper
    *   Wrapper.
-   * @param \Drupal\Core\Logger\LoggerChannel $loggerChannel
-   *   Logger.
+   * @param \Drupal\Core\Logger\LoggerChannelInterface $loggerChannel
+   *   Logger channel.
    * @param \Drupal\Core\Config\ImmutableConfig $config
-   *   Config.
+   *   Syncer config.
    * @param \Drupal\openy_pef_gxp_sync\OpenYPefGxpMappingRepository $mappingRepository
    *   Mapping repository.
-   * @param \Drupal\Core\Entity\EntityTypeManager $entityTypeManager
+   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
    *   Entity type manager.
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
+   *   Config factory.
    */
-  public function __construct(WrapperInterface $wrapper, LoggerChannel $loggerChannel, ImmutableConfig $config, OpenYPefGxpMappingRepository $mappingRepository, EntityTypeManager $entityTypeManager) {
+  public function __construct(WrapperInterface $wrapper, LoggerChannelInterface $loggerChannel, ImmutableConfig $config, OpenYPefGxpMappingRepository $mappingRepository, EntityTypeManagerInterface $entityTypeManager, ConfigFactoryInterface $configFactory) {
     $this->wrapper = $wrapper;
     $this->logger = $loggerChannel;
-    $this->config = $config;
+    $this->syncerConfig = $config;
     $this->mappingRepository = $mappingRepository;
     $this->entityTypeManager = $entityTypeManager;
+    $this->configFactory = $configFactory;
 
-    $config = \Drupal::configFactory()->get('openy_gxp.settings');
-    $this->programSubcategory = $config->get('activity');
+    $openyGxpConfig = $this->configFactory->get('openy_gxp.settings');
+    $this->programSubcategory = $openyGxpConfig->get('activity');
   }
 
   /**
-   * {@inheritdoc}
+   * Check if we are in demo mode.
+   *
+   * @return bool
+   *   TRUE if in demo mode.
    */
-  public function clean() {
-    $data = $this->wrapper->getProcessedData();
-
-    // Get session IDs from source data.
-    $sourceIds = array_map(function ($item) {
-      return $item['class_id'];
-    }, $data);
-
-    // Get session IDs from mapping items.
-    $mappings = \Drupal::database()->select('openy_pef_gxp_mapping', 'mapping')
-      ->fields('mapping', ['session', 'product_id'])
-      ->execute()
-      ->fetchAllAssoc('product_id');
-    $existingIds = array_keys($mappings);
-
-    $nodeStorage = $this->entityTypeManager->getStorage('node');
-
-    // Compare the arrays and remove orphaned local sessions.
-    $diff = array_diff($existingIds, $sourceIds);
-
-    // Foreach all found ids and delete corresponding sessions.
-    foreach ($diff as $productIdToDelete) {
-      $mappingToDelete = $mappings[$productIdToDelete];
-      $existingSession = $nodeStorage->load($mappingToDelete->session);
-      if ($existingSession) {
-        $message = 'The source data with class ID @class for session @session was not found. The session will be deleted.';
-        $this->logger->info($message, [
-          '@class' => $productIdToDelete,
-          '@session' => $existingSession->id(),
-        ]);
-        $nodeStorage->delete([$existingSession]);
-      }
+  protected function isDemo() {
+    if (!$this->syncerConfig->get('is_production')) {
+      // Demo mode is ON.
+      return TRUE;
     }
 
+    return FALSE;
   }
 
   /**
@@ -134,63 +122,52 @@ class Saver implements SaverInterface {
   public function save() {
     $data = $this->wrapper->getProcessedData();
 
-    // Do not sync all items in demo mode.
-    if (!$this->config->get('is_production')) {
-      $demoModeItems = self::DEMO_MODE_ITEMS;
-      if ($override = $this->config->get('demo_mode_items')) {
-        $demoModeItems = $override;
-      }
-      $data = array_slice($data, 0, $demoModeItems);
+    // In demo mode we publish only 5 locations and 5 classes for each.
+    $locationsIncrement = 0;
+
+    $demoModeCount = self::DEMO_MODE_ITEMS;
+    if ($configDemoModeCount = $this->syncerConfig->get('demo_mode_items')) {
+      $demoModeCount = $configDemoModeCount;
     }
 
-    $nodeStorage = $this->entityTypeManager->getStorage('node');
+    foreach ($data as $locationId => $locationData) {
+      $classesIncrement = 0;
 
-    // Loop over processed data and create session entities.
-    foreach ($data as $item) {
-      $hash = (string) crc32(serialize($item));
+      // Exit if we've processed demo number of locations.
+      if ($this->isDemo() && $locationsIncrement >= $demoModeCount) {
+        return;
+      }
 
-      // Check if corresponding session exists and is up to date.
-      $mappingItems = $this->mappingRepository->getMappingByHash($hash);
-      if ($mappingItems) {
+      foreach ($locationData as $classId => $items) {
+        foreach ($items as $item) {
+          // Break if we've processed demo number of classes.
+          if ($this->isDemo() && $classesIncrement >= $demoModeCount) {
+            break 2;
+          }
 
-        // Compare source item & existing one.
-        $mappingItem = reset($mappingItems);
-        if ($mappingItem->hash->value === $hash) {
-          // Item exists and identical. Skipping...
-          continue;
+          try {
+            $session = $this->createSession($item);
+            $mapping = OpenYPefGxpMapping::create(
+              [
+                'session' => $session,
+                'product_id' => $classId,
+                'location_id' => $locationId,
+              ]
+            );
+            $mapping->save();
+          }
+          catch (\Exception $exception) {
+            $this->logger
+              ->error(
+                'Failed to create a session with error message: @message',
+                ['@message' => $exception->getMessage()]
+              );
+            continue;
+          }
+          $classesIncrement++;
         }
-
-        // Source data is changed. Let's remove current item.
-        $existingSession = $nodeStorage->load($mappingItem->session->target_id);
-        if ($existingSession) {
-          $message = 'The source data with class ID @class for session @session was updated. The session will be recreated.';
-          $this->logger->info($message, [
-            '@class' => $item['class_id'],
-            '@session' => $existingSession->id(),
-          ]);
-          $nodeStorage->delete([$existingSession]);
-        }
       }
-
-      try {
-        $session = $this->createSession($item);
-        $mapping  = OpenYPefGxpMapping::create(
-          [
-            'session' => $session,
-            'hash' => crc32(serialize($item)),
-            'product_id' => $item['class_id'],
-          ]
-        );
-        $mapping->save();
-      }
-      catch (\Exception $exception) {
-        $this->logger
-          ->error(
-            'Failed to create a session with error message: @message',
-            ['@message' => $exception->getMessage()]
-          );
-        continue;
-      }
+      $locationsIncrement++;
     }
   }
 
@@ -245,7 +222,7 @@ class Saver implements SaverInterface {
     $session->set('field_session_class', $sessionClass);
     $session->set('field_session_time', $sessionTime);
     $session->set('field_session_exclusions', $sessionExclusions);
-    $session->set('field_session_location', ['target_id' => $class['ygtc_location_id']]);
+    $session->set('field_session_location', ['target_id' => $class['location_id']]);
     $session->set('field_session_room', $class['studio']);
     $session->set('field_session_instructor', $class['instructor']);
 
@@ -269,6 +246,8 @@ class Saver implements SaverInterface {
    *
    * @return array
    *   Exclusions.
+   *
+   * @throws \Exception
    */
   private function getSessionExclusions(array $class) {
     $exclusions = [];
@@ -310,8 +289,8 @@ class Saver implements SaverInterface {
     $endTime = new \DateTime($class['end_date'] . ' ' . $times['end_time'] . ':00', $siteTimezone);
     $endTime->setTimezone($gmtTimezone);
 
-    $startDate = $startTime->format(DATETIME_DATETIME_STORAGE_FORMAT);
-    $endDate = $endTime->format(DATETIME_DATETIME_STORAGE_FORMAT);
+    $startDate = $startTime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT);
+    $endDate = $endTime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT);
 
     if (!isset($times['day']) || empty($times['day'])) {
       throw new \Exception(sprintf('Day was not found for the class %s', $class['class_id']));
@@ -360,13 +339,12 @@ class Saver implements SaverInterface {
         'field_activity_description' => [
           [
             'value' => $class['description'],
-            'format' => 'full_html'
-          ]
+            'format' => 'full_html',
+          ],
         ],
         'field_activity_category' => [['target_id' => $this->programSubcategory]],
       ]);
 
-      // @todo Check whether we need unpublish the entity.
       $activity->save();
     }
     else {
@@ -405,18 +383,17 @@ class Saver implements SaverInterface {
         'field_class_description' => [
           [
             'value' => $class['description'],
-            'format' => 'full_html'
-          ]
+            'format' => 'full_html',
+          ],
         ],
         'field_class_activity' => [
           [
-            'target_id' => $activity->id()
-          ]
+            'target_id' => $activity->id(),
+          ],
         ],
         'field_content' => $paragraphs,
       ]);
 
-      // @todo Check whether we need unpublish the entity.
       $class->save();
     }
 
