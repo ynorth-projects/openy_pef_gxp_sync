@@ -1,4 +1,11 @@
 services:
+  openy_pef_gxp_sync.cache:
+    class: Drupal\Core\Cache\CacheBackendInterface
+    tags:
+      - { name: cache.bin }
+    factory: cache_factory:get
+    arguments:
+      - 'openy_pef_gxp_sync'
   logger.channel.openy_pef_gxp_sync:
     parent: logger.channel_base
     arguments:
@@ -22,7 +29,14 @@ services:
       - '@logger.channel.openy_pef_gxp_sync'
       - '@http_client'
       - '@openy_mappings.location_repository'
+      - '@config.factory'
+      - '@openy_pef_gxp_sync.cache'
       - '@config.openy_pef_gxp_sync.immutable'
+  openy_pef_gxp_sync.cleaner:
+    class: Drupal\openy_pef_gxp_sync\syncer\Cleaner
+    arguments:
+      - '@openy_pef_gxp_sync.wrapper'
+      - '@logger.channel.openy_pef_gxp_sync'
   openy_pef_gxp_sync.saver:
     class: Drupal\openy_pef_gxp_sync\syncer\Saver
     arguments:
@@ -36,7 +50,7 @@ services:
     arguments: []
     calls:
       - [addStep, ['@openy_pef_gxp_sync.fetcher', 'fetch']]
+      - [addStep, ['@openy_pef_gxp_sync.cleaner', 'clean']]
       - [addStep, ['@openy_pef_gxp_sync.saver', 'save']]
-      - [addStep, ['@openy_pef_gxp_sync.saver', 'clean']]
     tags:
       - { name: syncer }
