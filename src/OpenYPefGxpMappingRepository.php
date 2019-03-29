@@ -2,6 +2,7 @@
 
 namespace Drupal\openy_pef_gxp_sync;
 
+use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManager;
 use Drupal\Core\Logger\LoggerChannelInterface;
 
@@ -32,39 +33,64 @@ class OpenYPefGxpMappingRepository {
   protected $loggerChannel;
 
   /**
+   * Database.
+   *
+   * @var \Drupal\Core\Database\Connection
+   */
+  protected $db;
+
+  /**
    * OpenYPefGxpMappingRepository constructor.
    *
    * @param \Drupal\Core\Entity\EntityTypeManager $entityTypeManager
    *   Entity type manager.
    * @param \Drupal\Core\Logger\LoggerChannelInterface $loggerChannel
    *   Logger channel.
+   * @param \Drupal\Core\Database\Connection $db
+   *   Database.
    */
-  public function __construct(EntityTypeManager $entityTypeManager, LoggerChannelInterface $loggerChannel) {
+  public function __construct(EntityTypeManager $entityTypeManager, LoggerChannelInterface $loggerChannel, Connection $db) {
     $this->entityTypeManager = $entityTypeManager;
     $this->loggerChannel = $loggerChannel;
+    $this->db = $db;
   }
 
   /**
-   * Get mapping items by product id.
+   * Remove mapping entities by location & class.
    *
-   * @param string $productId
-   *   Product ID.
+   * Also removes referenced classes.
    *
-   * @return \Drupal\Core\Entity\EntityInterface[]
-   *   The list of founded items.
+   * @param int $locationId
+   *   Location ID.
+   * @param int $classId
+   *   Class ID.
    *
    * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
+   * @throws \Drupal\Component\Plugin\Exception\PluginNotFoundException
+   * @throws \Drupal\Core\Entity\EntityStorageException
    */
-  public function getMappingByProductId($productId) {
-    return $this->entityTypeManager
-      ->getStorage('openy_pef_gxp_mapping')
-      ->loadByProperties(['product_id' => $productId]);
+  public function removeByLocationIdAndClassId($locationId, $classId) {
+    $query = $this->db->select('openy_pef_gxp_mapping', 'm')
+      ->condition('location_id', $locationId)
+      ->condition('product_id', $classId)
+      ->fields('m', ['session']);
+
+    $ids = $query->execute()->fetchCol();
+    if (!$ids) {
+      return;
+    }
+
+    $this->removeByChunk($ids);
   }
 
   /**
    * Remove all mappings.
    *
-   * Referenced sessions will also be removed.
+   * Also removes referenced sessions.
+   *
+   * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
+   * @throws \Drupal\Component\Plugin\Exception\PluginNotFoundException
+   * @throws \Drupal\Core\Entity\EntityStorageException
    */
   public function removeAll() {
     $storage = $this->entityTypeManager->getStorage('openy_pef_gxp_mapping');
@@ -75,6 +101,21 @@ class OpenYPefGxpMappingRepository {
       return;
     }
 
+    $this->removeByChunk($ids);
+  }
+
+  /**
+   * Remove entities by ID.
+   *
+   * @param array $ids
+   *   Entity IDs.
+   *
+   * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
+   * @throws \Drupal\Component\Plugin\Exception\PluginNotFoundException
+   * @throws \Drupal\Core\Entity\EntityStorageException
+   */
+  private function removeByChunk(array $ids) {
+    $storage = $this->entityTypeManager->getStorage('openy_pef_gxp_mapping');
     $chunks = array_chunk($ids, self::CHUNK_DELETE);
 
     foreach ($chunks as $chunk) {
@@ -82,7 +123,7 @@ class OpenYPefGxpMappingRepository {
       $storage->delete($entities);
       $this->loggerChannel->debug(
         'Chunk of %chunk openy_pef_gxp_mapping entities has been deleted.',
-        ['%chunk' => self::CHUNK_DELETE]
+        ['%chunk' => count($chunk)]
       );
     }
   }

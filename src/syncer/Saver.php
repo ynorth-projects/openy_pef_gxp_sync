@@ -3,7 +3,6 @@
 namespace Drupal\openy_pef_gxp_sync\syncer;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Config\ImmutableConfig;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Logger\LoggerChannelInterface;
 use Drupal\datetime\Plugin\Field\FieldType\DateTimeItemInterface;
@@ -18,11 +17,6 @@ use Drupal\openy_pef_gxp_sync\OpenYPefGxpMappingRepository;
  * @package Drupal\openy_pef_gxp_sync\syncer
  */
 class Saver implements SaverInterface {
-
-  /**
-   * Default number of items to proceed in Demo mode.
-   */
-  const DEMO_MODE_ITEMS = 5;
 
   /**
    * Wrapper.
@@ -44,13 +38,6 @@ class Saver implements SaverInterface {
    * @var int
    */
   protected $programSubcategory;
-
-  /**
-   * Syncer config.
-   *
-   * @var \Drupal\Core\Config\ImmutableConfig
-   */
-  protected $syncerConfig;
 
   /**
    * Mapping repository.
@@ -80,8 +67,6 @@ class Saver implements SaverInterface {
    *   Wrapper.
    * @param \Drupal\Core\Logger\LoggerChannelInterface $loggerChannel
    *   Logger channel.
-   * @param \Drupal\Core\Config\ImmutableConfig $config
-   *   Syncer config.
    * @param \Drupal\openy_pef_gxp_sync\OpenYPefGxpMappingRepository $mappingRepository
    *   Mapping repository.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
@@ -89,10 +74,9 @@ class Saver implements SaverInterface {
    * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
    *   Config factory.
    */
-  public function __construct(WrapperInterface $wrapper, LoggerChannelInterface $loggerChannel, ImmutableConfig $config, OpenYPefGxpMappingRepository $mappingRepository, EntityTypeManagerInterface $entityTypeManager, ConfigFactoryInterface $configFactory) {
+  public function __construct(WrapperInterface $wrapper, LoggerChannelInterface $loggerChannel, OpenYPefGxpMappingRepository $mappingRepository, EntityTypeManagerInterface $entityTypeManager, ConfigFactoryInterface $configFactory) {
     $this->wrapper = $wrapper;
     $this->logger = $loggerChannel;
-    $this->syncerConfig = $config;
     $this->mappingRepository = $mappingRepository;
     $this->entityTypeManager = $entityTypeManager;
     $this->configFactory = $configFactory;
@@ -102,51 +86,22 @@ class Saver implements SaverInterface {
   }
 
   /**
-   * Check if we are in demo mode.
-   *
-   * @return bool
-   *   TRUE if in demo mode.
-   */
-  protected function isDemo() {
-    if (!$this->syncerConfig->get('is_production')) {
-      // Demo mode is ON.
-      return TRUE;
-    }
-
-    return FALSE;
-  }
-
-  /**
    * {@inheritdoc}
+   *
+   * @throws \Drupal\Core\Entity\EntityStorageException
+   * @throws \Exception
    */
   public function save() {
-    $data = $this->wrapper->getProcessedData();
+    $this->logger->info('%name started.', ['%name' => get_class($this)]);
 
-    // In demo mode we publish only 5 locations and 5 classes for each.
-    $locationsIncrement = 0;
-
-    $demoModeCount = self::DEMO_MODE_ITEMS;
-    if ($configDemoModeCount = $this->syncerConfig->get('demo_mode_items')) {
-      $demoModeCount = $configDemoModeCount;
-    }
+    $data = $this->wrapper->getDataToCreate();
 
     foreach ($data as $locationId => $locationData) {
-      $classesIncrement = 0;
-
-      // Exit if we've processed demo number of locations.
-      if ($this->isDemo() && $locationsIncrement >= $demoModeCount) {
-        return;
-      }
-
-      foreach ($locationData as $classId => $items) {
-        foreach ($items as $item) {
-          // Break if we've processed demo number of classes.
-          if ($this->isDemo() && $classesIncrement >= $demoModeCount) {
-            break 2;
-          }
+      foreach ($locationData as $classId => $classItems) {
+        foreach ($classItems as $class) {
 
           try {
-            $session = $this->createSession($item);
+            $session = $this->createSession($class);
             $mapping = OpenYPefGxpMapping::create(
               [
                 'session' => $session,
@@ -156,7 +111,7 @@ class Saver implements SaverInterface {
             );
             $mapping->save();
           }
-          catch (\Exception $exception) {
+          catch (Exception $exception) {
             $this->logger
               ->error(
                 'Failed to create a session with error message: @message',
@@ -164,11 +119,12 @@ class Saver implements SaverInterface {
               );
             continue;
           }
-          $classesIncrement++;
         }
       }
-      $locationsIncrement++;
     }
+
+    $this->wrapper->setSavedHashes();
+    $this->logger->info('%name started.', ['%name' => get_class($this)]);
   }
 
   /**
@@ -187,26 +143,26 @@ class Saver implements SaverInterface {
     try {
       $sessionClass = $this->getClass($class);
     }
-    catch (\Exception $exception) {
+    catch (Exception $exception) {
       $message = sprintf(
         'Failed to get class for Groupex class %s with message %s',
         $class['class_id'],
         $exception->getMessage()
       );
-      throw new \Exception($message);
+      throw new Exception($message);
     }
 
     // Get session time paragraph.
     try {
       $sessionTime = $this->getSessionTime($class);
     }
-    catch (\Exception $exception) {
+    catch (Exception $exception) {
       $message = sprintf(
         'Failed to get session time for Groupex class %s with message %s',
         $class['class_id'],
         $exception->getMessage()
       );
-      throw new \Exception($message);
+      throw new Exception($message);
     }
 
     // Get session_exclusions.
@@ -231,8 +187,12 @@ class Saver implements SaverInterface {
     $session->save();
     $this->logger
       ->debug(
-        'Session has been created. ID: @id',
-        ['@id' => $session->id()]
+        'Session has been created. ID: %id, Location ID: %loc_id, Class ID: %class_id',
+        [
+          '%id' => $session->id(),
+          '%loc_id' => $class['location_id'],
+          '%class_id' => $class['class_id'],
+        ]
       );
 
     return $session;
@@ -253,8 +213,8 @@ class Saver implements SaverInterface {
     $exclusions = [];
     if (isset($class['exclusions'])) {
       foreach ($class['exclusions'] as $exclusion) {
-        $exclusionStart = (new \DateTime($exclusion . '00:00:00'))->format('Y-m-d\TH:i:s');
-        $exclusionEnd = (new \DateTime($exclusion . '24:00:00'))->format('Y-m-d\TH:i:s');
+        $exclusionStart = (new DateTime($exclusion . '00:00:00'))->format('Y-m-d\TH:i:s');
+        $exclusionEnd = (new DateTime($exclusion . '24:00:00'))->format('Y-m-d\TH:i:s');
         $exclusions[] = [
           'value' => $exclusionStart,
           'end_value' => $exclusionEnd,
@@ -280,20 +240,20 @@ class Saver implements SaverInterface {
     $times = $class['patterns'];
 
     // Convert to UTC timezone to save to database.
-    $siteTimezone = new \DateTimeZone(drupal_get_user_timezone());
-    $gmtTimezone = new \DateTimeZone('GMT');
+    $siteTimezone = new DateTimeZone(drupal_get_user_timezone());
+    $gmtTimezone = new DateTimeZone('GMT');
 
-    $startTime = new \DateTime($class['start_date'] . ' ' . $times['start_time'] . ':00', $siteTimezone);
+    $startTime = new DateTime($class['start_date'] . ' ' . $times['start_time'] . ':00', $siteTimezone);
     $startTime->setTimezone($gmtTimezone);
 
-    $endTime = new \DateTime($class['end_date'] . ' ' . $times['end_time'] . ':00', $siteTimezone);
+    $endTime = new DateTime($class['end_date'] . ' ' . $times['end_time'] . ':00', $siteTimezone);
     $endTime->setTimezone($gmtTimezone);
 
     $startDate = $startTime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT);
     $endDate = $endTime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT);
 
     if (!isset($times['day']) || empty($times['day'])) {
-      throw new \Exception(sprintf('Day was not found for the class %s', $class['class_id']));
+      throw new Exception(sprintf('Day was not found for the class %s', $class['class_id']));
     }
 
     $days[] = strtolower($times['day']);
@@ -314,16 +274,20 @@ class Saver implements SaverInterface {
    * Create class or use existing.
    *
    * @param array $class
-   *   Class properties.
+   *   Class data.
    *
    * @return array
-   *   Class.
+   *   Class references.
    *
+   * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
+   * @throws \Drupal\Component\Plugin\Exception\PluginNotFoundException
    * @throws \Drupal\Core\Entity\EntityStorageException
    */
   private function getClass(array $class) {
+    $nodeStorage = $this->entityTypeManager->getStorage('node');
+
     // Try to get existing activity.
-    $existingActivities = \Drupal::entityQuery('node')
+    $existingActivities = $nodeStorage->getQuery()
       ->condition('title', $class['category'])
       ->condition('type', 'activity')
       ->condition('field_activity_category', $this->programSubcategory)
@@ -350,11 +314,11 @@ class Saver implements SaverInterface {
     else {
       // Use the first found existing one.
       $activityId = reset($existingActivities);
-      $activity = Node::load($activityId);
+      $activity = $nodeStorage->load($activityId);
     }
 
     // Try to find class.
-    $existingClasses = \Drupal::entityQuery('node')
+    $existingClasses = $nodeStorage->getQuery()
       ->condition('title', $class['title'])
       ->condition('field_class_activity', $activity->id())
       ->condition('field_class_description', $class['description'])
@@ -362,7 +326,7 @@ class Saver implements SaverInterface {
 
     if (!empty($existingClasses)) {
       $classId = reset($existingClasses);
-      $class = Node::load($classId);
+      $class = $nodeStorage->load($classId);
     }
     else {
       $paragraphs = [];

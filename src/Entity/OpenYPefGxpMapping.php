@@ -13,6 +13,7 @@ use Drupal\Core\Field\BaseFieldDefinition;
  *   id = "openy_pef_gxp_mapping",
  *   label = @Translation("OpenY PEF GXP Mapping"),
  *   base_table = "openy_pef_gxp_mapping",
+ *   data_table = "openy_pef_gxp_mapping",
  *   entity_keys = {
  *     "id" = "id",
  *     "uuid" = "uuid"
@@ -51,8 +52,8 @@ class OpenYPefGxpMapping extends ContentEntityBase implements OpenYPefGxpMapping
       ]);
 
     $fields['product_id'] = BaseFieldDefinition::create('string')
-      ->setLabel(t('Product ID'))
-      ->setDescription(t('Used to map source Product ID.'))
+      ->setLabel(t('Class ID'))
+      ->setDescription(t('Used to map source Class ID.'))
       ->setRequired(TRUE)
       ->setSettings([
         'default_value' => '',

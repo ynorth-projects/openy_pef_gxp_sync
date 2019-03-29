@@ -15,14 +15,11 @@ services:
     arguments:
       - '@entity_type.manager'
       - '@logger.channel.openy_pef_gxp_sync'
-  config.openy_pef_gxp_sync.immutable:
-    class: \Drupal\Core\Config\ImmutableConfig
-    factory: config.factory:get
-    arguments:
-      - 'openy_pef_gxp_sync.settings'
+      - '@database'
   openy_pef_gxp_sync.wrapper:
     class: Drupal\openy_pef_gxp_sync\syncer\Wrapper
-    arguments: []
+    arguments:
+      - '@state'
   openy_pef_gxp_sync.fetcher:
     class: Drupal\openy_pef_gxp_sync\syncer\Fetcher
     arguments:
@@ -32,18 +29,17 @@ services:
       - '@openy_mappings.location_repository'
       - '@config.factory'
       - '@openy_pef_gxp_sync.cache'
-      - '@config.openy_pef_gxp_sync.immutable'
   openy_pef_gxp_sync.cleaner:
     class: Drupal\openy_pef_gxp_sync\syncer\Cleaner
     arguments:
       - '@openy_pef_gxp_sync.wrapper'
       - '@logger.channel.openy_pef_gxp_sync'
+      - '@openy_pef_gxp_sync_mapping.repository'
   openy_pef_gxp_sync.saver:
     class: Drupal\openy_pef_gxp_sync\syncer\Saver
     arguments:
       - '@openy_pef_gxp_sync.wrapper'
       - '@logger.channel.openy_pef_gxp_sync'
-      - '@config.openy_pef_gxp_sync.immutable'
       - '@openy_pef_gxp_sync_mapping.repository'
       - '@entity_type.manager'
       - '@config.factory'
@@ -52,6 +48,7 @@ services:
     arguments: []
     calls:
       - [addStep, ['@openy_pef_gxp_sync.fetcher', 'fetch']]
+      - [addStep, ['@openy_pef_gxp_sync.wrapper', 'prepare']]
       - [addStep, ['@openy_pef_gxp_sync.cleaner', 'clean']]
       - [addStep, ['@openy_pef_gxp_sync.saver', 'save']]
     tags:

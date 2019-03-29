@@ -4,7 +4,6 @@ namespace Drupal\openy_pef_gxp_sync\syncer;
 
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Config\ImmutableConfig;
 use Drupal\Core\Logger\LoggerChannel;
 use Drupal\openy_mappings\LocationMappingRepository;
 use Drupal\openy_pef_gxp_sync\OpenYPefGxpSyncException;
@@ -25,7 +24,7 @@ class Fetcher implements FetcherInterface {
   /**
    * Set 1 to set debug mode.
    */
-  const DEBUG_MODE = 1;
+  const DEBUG_MODE = 0;
 
   /**
    * Wrapper.
@@ -70,13 +69,6 @@ class Fetcher implements FetcherInterface {
   protected $cacheBackend;
 
   /**
-   * Syncer config.
-   *
-   * @var \Drupal\Core\Config\ImmutableConfig
-   */
-  protected $syncerConfig;
-
-  /**
    * Fetcher constructor.
    *
    * @param \Drupal\openy_pef_gxp_sync\syncer\WrapperInterface $wrapper
@@ -91,17 +83,14 @@ class Fetcher implements FetcherInterface {
    *   Config factory.
    * @param \Drupal\Core\Cache\CacheBackendInterface $cacheBackend
    *   Cache backend.
-   * @param \Drupal\Core\Config\ImmutableConfig $config
-   *   Syncer config.
    */
-  public function __construct(WrapperInterface $wrapper, LoggerChannel $loggerChannel, HttpClientInterface $client, LocationMappingRepository $mappingRepository, ConfigFactoryInterface $configFactory, CacheBackendInterface $cacheBackend, ImmutableConfig $config) {
+  public function __construct(WrapperInterface $wrapper, LoggerChannel $loggerChannel, HttpClientInterface $client, LocationMappingRepository $mappingRepository, ConfigFactoryInterface $configFactory, CacheBackendInterface $cacheBackend) {
     $this->wrapper = $wrapper;
     $this->logger = $loggerChannel;
     $this->client = $client;
     $this->mappingRepository = $mappingRepository;
     $this->configFactory = $configFactory;
     $this->cacheBackend = $cacheBackend;
-    $this->syncerConfig = $config;
   }
 
   /**
