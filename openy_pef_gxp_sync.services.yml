@@ -29,6 +29,10 @@ services:
       - '@openy_mappings.location_repository'
       - '@config.factory'
       - '@openy_pef_gxp_sync.cache'
+  openy_pef_gxp_sync.fetcher_debugger:
+    class: Drupal\openy_pef_gxp_sync\syncer\FetcherDebugger
+    arguments:
+      - '@openy_pef_gxp_sync.wrapper'
   openy_pef_gxp_sync.cleaner:
     class: Drupal\openy_pef_gxp_sync\syncer\Cleaner
     arguments:

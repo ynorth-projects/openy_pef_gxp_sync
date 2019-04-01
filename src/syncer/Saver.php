@@ -8,7 +8,6 @@ use Drupal\Core\Logger\LoggerChannelInterface;
 use Drupal\datetime\Plugin\Field\FieldType\DateTimeItemInterface;
 use Drupal\node\Entity\Node;
 use Drupal\paragraphs\Entity\Paragraph;
-use Drupal\openy_pef_gxp_sync\Entity\OpenYPefGxpMapping;
 use Drupal\openy_pef_gxp_sync\OpenYPefGxpMappingRepository;
 
 /**
@@ -95,6 +94,9 @@ class Saver implements SaverInterface {
     $this->logger->info('%name started.', ['%name' => get_class($this)]);
 
     $data = $this->wrapper->getDataToCreate();
+    if (empty($data)) {
+      $this->logger->info('%name finished. Nothing new to create.', ['%name' => get_class($this)]);
+    }
 
     foreach ($data as $locationId => $locationData) {
       foreach ($locationData as $classId => $classItems) {
@@ -102,7 +104,7 @@ class Saver implements SaverInterface {
 
           try {
             $session = $this->createSession($class);
-            $mapping = OpenYPefGxpMapping::create(
+            $mapping = $this->entityTypeManager->getStorage('openy_pef_gxp_mapping')->create(
               [
                 'session' => $session,
                 'product_id' => $classId,
@@ -124,7 +126,7 @@ class Saver implements SaverInterface {
     }
 
     $this->wrapper->setSavedHashes();
-    $this->logger->info('%name started.', ['%name' => get_class($this)]);
+    $this->logger->info('%name finished.', ['%name' => get_class($this)]);
   }
 
   /**
@@ -213,8 +215,8 @@ class Saver implements SaverInterface {
     $exclusions = [];
     if (isset($class['exclusions'])) {
       foreach ($class['exclusions'] as $exclusion) {
-        $exclusionStart = (new DateTime($exclusion . '00:00:00'))->format('Y-m-d\TH:i:s');
-        $exclusionEnd = (new DateTime($exclusion . '24:00:00'))->format('Y-m-d\TH:i:s');
+        $exclusionStart = (new \DateTime($exclusion . '00:00:00'))->format('Y-m-d\TH:i:s');
+        $exclusionEnd = (new \DateTime($exclusion . '24:00:00'))->format('Y-m-d\TH:i:s');
         $exclusions[] = [
           'value' => $exclusionStart,
           'end_value' => $exclusionEnd,
@@ -240,13 +242,13 @@ class Saver implements SaverInterface {
     $times = $class['patterns'];
 
     // Convert to UTC timezone to save to database.
-    $siteTimezone = new DateTimeZone(drupal_get_user_timezone());
-    $gmtTimezone = new DateTimeZone('GMT');
+    $siteTimezone = new \DateTimeZone(drupal_get_user_timezone());
+    $gmtTimezone = new \DateTimeZone('GMT');
 
-    $startTime = new DateTime($class['start_date'] . ' ' . $times['start_time'] . ':00', $siteTimezone);
+    $startTime = new \DateTime($class['start_date'] . ' ' . $times['start_time'] . ':00', $siteTimezone);
     $startTime->setTimezone($gmtTimezone);
 
-    $endTime = new DateTime($class['end_date'] . ' ' . $times['end_time'] . ':00', $siteTimezone);
+    $endTime = new \DateTime($class['end_date'] . ' ' . $times['end_time'] . ':00', $siteTimezone);
     $endTime->setTimezone($gmtTimezone);
 
     $startDate = $startTime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT);

@@ -37,3 +37,10 @@ The syncer consists of the next steps:
 1. Each GroupEx class can have several class items (with the same class ID).
 2. We compare hashes for Location ID + Class ID + all class items inside (on unprocessed data!).
 3. If hash is changed we should remove all items belongs to this hash and create them again.
+
+### How to debug
+
+1. To emulate API data please use `FetcherDebuggerClass`. Just replace `@openy_pef_gxp_sync.fetcher` with
+`@openy_pef_gxp_sync.fetcher_debugger` to emulate API response.
+
+2. Use `DEBUG_MODE` constants inside classes to debug specific service.

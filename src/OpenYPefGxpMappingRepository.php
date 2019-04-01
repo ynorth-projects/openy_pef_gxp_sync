@@ -73,7 +73,7 @@ class OpenYPefGxpMappingRepository {
     $query = $this->db->select('openy_pef_gxp_mapping', 'm')
       ->condition('location_id', $locationId)
       ->condition('product_id', $classId)
-      ->fields('m', ['session']);
+      ->fields('m', ['id']);
 
     $ids = $query->execute()->fetchCol();
     if (!$ids) {

@@ -21,7 +21,7 @@ class Wrapper implements WrapperInterface {
    *
    * @var array
    */
-  protected $sourceData;
+  protected $sourceData = [];
 
   /**
    * Processed data.
@@ -72,6 +72,9 @@ class Wrapper implements WrapperInterface {
    * {@inheritdoc}
    */
   public function prepare() {
+    $dataToCreate = [];
+    $dataToRemove = [];
+
     $processedData = $this->getProcessedData();
 
     $hashesSaved = $this->getSavedHashes();
