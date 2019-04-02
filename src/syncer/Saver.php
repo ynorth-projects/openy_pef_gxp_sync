@@ -92,6 +92,7 @@ class Saver implements SaverInterface {
    */
   public function save() {
     $this->logger->info('%name started.', ['%name' => get_class($this)]);
+    $this->wrapper->setSavedHashes();
 
     $data = $this->wrapper->getDataToCreate();
     if (empty($data)) {
@@ -124,8 +125,6 @@ class Saver implements SaverInterface {
         }
       }
     }
-
-    $this->wrapper->setSavedHashes();
     $this->logger->info('%name finished.', ['%name' => get_class($this)]);
   }
 
