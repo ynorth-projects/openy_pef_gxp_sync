@@ -34,7 +34,7 @@ class FetcherEmbed implements FetcherInterface {
   /**
    * Set 1 to set debug mode.
    */
-  const DEBUG_MODE = 1;
+  const DEBUG_MODE = 0;
 
   /**
    * Wrapper.
