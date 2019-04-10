@@ -29,6 +29,15 @@ services:
       - '@openy_mappings.location_repository'
       - '@config.factory'
       - '@openy_pef_gxp_sync.cache'
+  openy_pef_gxp_sync.fetcher_embed:
+    class: Drupal\openy_pef_gxp_sync\syncer\FetcherEmbed
+    arguments:
+      - '@openy_pef_gxp_sync.wrapper'
+      - '@logger.channel.openy_pef_gxp_sync'
+      - '@http_client'
+      - '@openy_mappings.location_repository'
+      - '@config.factory'
+      - '@openy_pef_gxp_sync.cache'
   openy_pef_gxp_sync.fetcher_debugger:
     class: Drupal\openy_pef_gxp_sync\syncer\FetcherDebugger
     arguments:
@@ -52,6 +61,7 @@ services:
     arguments: []
     calls:
       - [addStep, ['@openy_pef_gxp_sync.fetcher', 'fetch']]
+      - [addStep, ['@openy_pef_gxp_sync.fetcher_embed', 'fetch']]
       - [addStep, ['@openy_pef_gxp_sync.wrapper', 'prepare']]
       - [addStep, ['@openy_pef_gxp_sync.cleaner', 'clean']]
       - [addStep, ['@openy_pef_gxp_sync.saver', 'save']]

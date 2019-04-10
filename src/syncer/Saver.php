@@ -253,11 +253,10 @@ class Saver implements SaverInterface {
     $startDate = $startTime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT);
     $endDate = $endTime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT);
 
-    if (!isset($times['day']) || empty($times['day'])) {
-      throw new Exception(sprintf('Day was not found for the class %s', $class['class_id']));
+    $days = [];
+    if (isset($times['day']) && !empty($times['day'])) {
+      $days[] = strtolower($times['day']);
     }
-
-    $days[] = strtolower($times['day']);
 
     $paragraph = Paragraph::create(['type' => 'session_time']);
     $paragraph->set('field_session_time_days', $days);

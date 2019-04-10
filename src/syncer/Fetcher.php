@@ -24,7 +24,7 @@ class Fetcher implements FetcherInterface {
   /**
    * Set 1 to set debug mode.
    */
-  const DEBUG_MODE = 0;
+  const DEBUG_MODE = 1;
 
   /**
    * Wrapper.
@@ -114,7 +114,7 @@ class Fetcher implements FetcherInterface {
       $locationGpxId = $location->field_groupex_id->value;
       $locationId = $location->field_location_ref->target_id;
 
-      if (self::DEBUG_MODE && $cachedData = $this->cacheBackend->get(get_class($this) . '_' . $locationId)) {
+      if (self::DEBUG_MODE && $cachedData = $this->cacheBackend->get(get_class($this) . '_new_' . $locationId)) {
         $this->wrapper->setSourceData($locationId, $cachedData->data);
         continue;
       }
@@ -132,7 +132,7 @@ class Fetcher implements FetcherInterface {
       $this->wrapper->setSourceData($locationId, $response);
 
       if (self::DEBUG_MODE) {
-        $this->cacheBackend->set(get_class($this) . '_' . $locationId, $response);
+        $this->cacheBackend->set(get_class($this) . '_new_' . $locationId, $response);
       }
     }
 

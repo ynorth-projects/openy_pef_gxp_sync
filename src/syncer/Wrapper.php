@@ -194,7 +194,11 @@ class Wrapper implements WrapperInterface {
    * {@inheritdoc}
    */
   public function setSourceData($locationId, array $data) {
-    $this->sourceData[$locationId] = $data;
+    if (!isset($this->sourceData[$locationId])) {
+      $this->sourceData[$locationId] = [];
+    }
+
+    $this->sourceData[$locationId] = array_merge($this->sourceData[$locationId], $data);
   }
 
   /**
