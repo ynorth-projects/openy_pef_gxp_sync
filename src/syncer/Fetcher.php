@@ -12,6 +12,8 @@ use GuzzleHttp\ClientInterface as HttpClientInterface;
 /**
  * Class Fetcher.
  *
+ * @todo Suppress `Genera` category here.
+ *
  * @package Drupal\openy_pef_gxp_sync\syncer
  */
 class Fetcher implements FetcherInterface {
