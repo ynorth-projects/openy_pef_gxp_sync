@@ -34,4 +34,5 @@ function drush_openy_pef_gxp_sync() {
  */
 function drush_openy_pef_gxp_sync_clean() {
   \Drupal::service('openy_pef_gxp_sync_mapping.repository')->removeAll();
+  \Drupal::state()->delete('openy_pef_gxp_sync_hashes');
 }
