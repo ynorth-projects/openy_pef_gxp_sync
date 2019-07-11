@@ -10,9 +10,7 @@ use Drupal\openy_pef_gxp_sync\OpenYPefGxpSyncException;
 use GuzzleHttp\ClientInterface as HttpClientInterface;
 
 /**
- * Class FetcherEmbed.
- *
- * Uses the old API to get classes.
+ * Class Fetcher.
  *
  * @package Drupal\openy_pef_gxp_sync\syncer
  */
