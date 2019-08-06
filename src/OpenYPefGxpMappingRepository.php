@@ -102,6 +102,9 @@ class OpenYPefGxpMappingRepository {
     }
 
     $this->removeByChunk($ids);
+
+    // @todo Consider to move hashes into other location (mappings).
+    \Drupal::state()->delete('openy_pef_gxp_sync_hashes');
   }
 
   /**
