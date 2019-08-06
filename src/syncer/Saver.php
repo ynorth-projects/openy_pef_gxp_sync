@@ -211,11 +211,14 @@ class Saver implements SaverInterface {
    * @throws \Exception
    */
   private function getSessionExclusions(array $class) {
+    $timezone = new \DateTimeZone(WrapperInterface::API_TIMEZONE);
+    $gmt = new \DateTimeZone('GMT');
+
     $exclusions = [];
     if (isset($class['exclusions'])) {
       foreach ($class['exclusions'] as $exclusion) {
-        $exclusionStart = (new \DateTime($exclusion . '00:00:00'))->format('Y-m-d\TH:i:s');
-        $exclusionEnd = (new \DateTime($exclusion . '24:00:00'))->format('Y-m-d\TH:i:s');
+        $exclusionStart = (new \DateTime($exclusion . '00:00:00', $timezone))->setTimezone($gmt)->format('Y-m-d\TH:i:s');
+        $exclusionEnd = (new \DateTime($exclusion . '24:00:00', $timezone))->setTimezone($gmt)->format('Y-m-d\TH:i:s');
         $exclusions[] = [
           'value' => $exclusionStart,
           'end_value' => $exclusionEnd,
@@ -238,16 +241,16 @@ class Saver implements SaverInterface {
    * @throws \Exception
    */
   private function getSessionTime(array $class) {
+    $timezone = new \DateTimeZone(WrapperInterface::API_TIMEZONE);
     $times = $class['patterns'];
 
     // Convert to UTC timezone to save to database.
-    $siteTimezone = new \DateTimeZone(drupal_get_user_timezone());
     $gmtTimezone = new \DateTimeZone('GMT');
 
-    $startTime = new \DateTime($class['start_date'] . ' ' . $times['start_time'] . ':00', $siteTimezone);
+    $startTime = new \DateTime($class['start_date'] . ' ' . $times['start_time'] . ':00', $timezone);
     $startTime->setTimezone($gmtTimezone);
 
-    $endTime = new \DateTime($class['end_date'] . ' ' . $times['end_time'] . ':00', $siteTimezone);
+    $endTime = new \DateTime($class['end_date'] . ' ' . $times['end_time'] . ':00', $timezone);
     $endTime->setTimezone($gmtTimezone);
 
     $startDate = $startTime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT);
