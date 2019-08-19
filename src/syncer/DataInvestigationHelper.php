@@ -88,4 +88,67 @@ class DataInvestigationHelper {
 
     return $filtered;
   }
+
+  /**
+   * Get all available patterns.
+   *
+   * @return array
+   */
+  public function getAvailableDayPatterns() {
+    $filtered = [];
+    foreach ($this->data as $locationId => $classes) {
+      foreach ($classes as $class) {
+        $dayPattern = 'none';
+        if (array_key_exists('day', $class['patterns'])) {
+          $dayPattern = $class['patterns']['day'];
+        }
+
+        if (!$filtered[$dayPattern]) {
+          $filtered[$dayPattern] = 0;
+        }
+
+        $filtered[$dayPattern]++;
+      }
+    }
+
+    return $filtered;
+  }
+
+  /**
+   * Check if provided date corresponds the day.
+   *
+   * @return array
+   */
+  public function checkDateAndDay() {
+    $filtered = [];
+
+    foreach ($this->data as $locationId => $classes) {
+      foreach ($classes as $class) {
+        $timezone = new \DateTimeZone(WrapperInterface::API_TIMEZONE);
+        if (!array_key_exists('patterns', $class)) {
+          continue;
+        }
+
+        $times = $class['patterns'];
+
+        try {
+          $startTime = new \DateTime($class['start_date'] . ' ' . $times['start_time'] . ':00', $timezone);
+        }
+        catch (\Exception $e) {
+          $a = 10;
+        }
+
+        $dateDay = strtolower($startTime->format('l'));
+        $classDay = strtolower($class['patterns']['day']);
+        if ($dateDay != $classDay) {
+          if (!$class['class_id']) {
+            $filtered[$class['class_id']] = 0;
+          }
+          $filtered[$class['class_id']]++;
+        }
+      }
+    }
+    return $filtered;
+  }
+
 }
