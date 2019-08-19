@@ -2,6 +2,7 @@
 
 namespace Drupal\openy_pef_gxp_sync\syncer;
 
+use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Logger\LoggerChannelInterface;
@@ -16,6 +17,11 @@ use Drupal\openy_pef_gxp_sync\OpenYPefGxpMappingRepository;
  * @package Drupal\openy_pef_gxp_sync\syncer
  */
 class Saver implements SaverInterface {
+
+  /**
+   * Debug mode fore development.
+   */
+  const DEBUG = 0;
 
   /**
    * Wrapper.
@@ -60,6 +66,13 @@ class Saver implements SaverInterface {
   protected $configFactory;
 
   /**
+   * Time.
+   *
+   * @var \Drupal\Component\Datetime\TimeInterface
+   */
+  protected $time;
+
+  /**
    * Saver constructor.
    *
    * @param \Drupal\openy_pef_gxp_sync\syncer\WrapperInterface $wrapper
@@ -72,13 +85,16 @@ class Saver implements SaverInterface {
    *   Entity type manager.
    * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
    *   Config factory.
+   * @param \Drupal\Component\Datetime\TimeInterface $time
+   *   Time.
    */
-  public function __construct(WrapperInterface $wrapper, LoggerChannelInterface $loggerChannel, OpenYPefGxpMappingRepository $mappingRepository, EntityTypeManagerInterface $entityTypeManager, ConfigFactoryInterface $configFactory) {
+  public function __construct(WrapperInterface $wrapper, LoggerChannelInterface $loggerChannel, OpenYPefGxpMappingRepository $mappingRepository, EntityTypeManagerInterface $entityTypeManager, ConfigFactoryInterface $configFactory, TimeInterface $time) {
     $this->wrapper = $wrapper;
     $this->logger = $loggerChannel;
     $this->mappingRepository = $mappingRepository;
     $this->entityTypeManager = $entityTypeManager;
     $this->configFactory = $configFactory;
+    $this->time = $time;
 
     $openyGxpConfig = $this->configFactory->get('openy_gxp.settings');
     $this->programSubcategory = $openyGxpConfig->get('activity');
@@ -95,6 +111,7 @@ class Saver implements SaverInterface {
     $this->wrapper->setSavedHashes();
 
     $data = $this->wrapper->getDataToCreate();
+
     if (empty($data)) {
       $this->logger->info('%name finished. Nothing new to create.', ['%name' => get_class($this)]);
     }
@@ -102,6 +119,13 @@ class Saver implements SaverInterface {
     foreach ($data as $locationId => $locationData) {
       foreach ($locationData as $classId => $classItems) {
         foreach ($classItems as $class) {
+
+          // Check if class is corrupted.
+          if (!array_key_exists('patterns', $class)) {
+            $message = 'Got corrupted class (Unknown data): String: %string';
+            $this->logger->error($message, ['%string' => serialize($class)]);
+            continue;
+          }
 
           try {
             $session = $this->createSession($class);
@@ -114,7 +138,7 @@ class Saver implements SaverInterface {
             );
             $mapping->save();
           }
-          catch (Exception $exception) {
+          catch (\Exception $exception) {
             $this->logger
               ->error(
                 'Failed to create a session with error message: @message',
@@ -155,7 +179,7 @@ class Saver implements SaverInterface {
 
     // Get session time paragraph.
     try {
-      $sessionTime = $this->getSessionTime($class);
+      $sessionTimes = $this->getSessionTime($class);
     }
     catch (Exception $exception) {
       $message = sprintf(
@@ -177,7 +201,7 @@ class Saver implements SaverInterface {
     ]);
 
     $session->set('field_session_class', $sessionClass);
-    $session->set('field_session_time', $sessionTime);
+    $session->set('field_session_time', $sessionTimes);
     $session->set('field_session_exclusions', $sessionExclusions);
     $session->set('field_session_location', ['target_id' => $class['location_id']]);
     $session->set('field_session_room', $class['studio']);
@@ -243,6 +267,7 @@ class Saver implements SaverInterface {
   private function getSessionTime(array $class) {
     $timezone = new \DateTimeZone(WrapperInterface::API_TIMEZONE);
     $times = $class['patterns'];
+    $paragraphTimes = [];
 
     // Convert to UTC timezone to save to database.
     $gmtTimezone = new \DateTimeZone('GMT');
@@ -261,16 +286,107 @@ class Saver implements SaverInterface {
       $days[] = strtolower($times['day']);
     }
 
-    $paragraph = Paragraph::create(['type' => 'session_time']);
-    $paragraph->set('field_session_time_days', $days);
-    $paragraph->set('field_session_time_date', ['value' => $startDate, 'end_value' => $endDate]);
-    $paragraph->isNew();
-    $paragraph->save();
+    // Check if we got not standard pattern.
+    $standardPatternItems = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    if (!in_array(strtolower($class['patterns']['day']), $standardPatternItems)) {
+      $message = sprintf(
+        'Non supported day string was found. Class ID: %s, string: %s.',
+        $class['class_id'],
+        $class['patterns']['day']
+      );
+      throw new \Exception($message);
+    }
 
-    return [
-      'target_id' => $paragraph->id(),
-      'target_revision_id' => $paragraph->getRevisionId(),
-    ];
+    // Check if date is corresponds given day.
+    $startTimeApiTimezone = clone $startTime;
+    $startTimeApiTimezone->setTimezone($timezone);
+
+    if (strtolower($startTimeApiTimezone->format('l')) != strtolower($class['patterns']['day'])) {
+      $message = sprintf(
+        'Date does not corresponds the give day. Class ID: %s, Day pattern: %s.',
+        $class['class_id'],
+        $class['patterns']['day']
+      );
+      throw new \Exception($message);
+    }
+
+    switch ($class['recurring']) {
+      case 'biweekly':
+        $currentTime = $this->time->getCurrentTime();
+        $maxTime = new \DateTime();
+        $maxTime->setTimeStamp($currentTime)->modify('+2 month');
+
+        $deltaTime = clone $startTime;
+        $endTimeHours = $endTime->format('H');
+        $endTimeMinutes = $endTime->format('i');
+
+        // Do not sync mor the 2 months forward.
+        $loopEndTime = clone $endTime;
+        $loopEndTime = ($maxTime < $loopEndTime) ? $maxTime : $loopEndTime;
+
+        while ($deltaTime < $loopEndTime) {
+          $deltaTime->modify('+2 week');
+          $deltaTimeUnix = (int) $deltaTime->format('U');
+          if ($deltaTimeUnix > $currentTime && $deltaTime < $loopEndTime) {
+            $startDeltaTime = clone $deltaTime;
+            $endDeltaTime = clone $deltaTime;
+            $endDeltaTime->setTime($endTimeHours, $endTimeMinutes);
+
+            $paragraphTimes[] = [
+              'startTime' => $startDeltaTime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT),
+              'endTime' => $endDeltaTime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT),
+            ];
+          }
+        }
+        break;
+
+      default:
+        $paragraphTimes = [
+          [
+            'startTime' => $startDate,
+            'endTime' => $endDate
+          ]
+        ];
+    }
+
+    $paragraphs = $this->createSessionTimeParagraphs($days, $paragraphTimes);
+    return $paragraphs;
+  }
+
+  /**
+   * Create time paragraphs.
+   *
+   * @param array $days
+   *   Array with days.
+   * @param array $times
+   *   Start & End times.
+   *
+   * @return array
+   *   Array with time paragraphs.
+   *
+   * @throws \Drupal\Core\Entity\EntityStorageException
+   */
+  private function createSessionTimeParagraphs(array $days, array $times) {
+    $paragraphs = [];
+    foreach ($times as $item) {
+      $paragraph = Paragraph::create(['type' => 'session_time']);
+      $paragraph->set('field_session_time_days', $days);
+      $paragraph->set('field_session_time_date',
+        [
+          'value' => $item['startTime'],
+          'end_value' => $item['endTime']
+        ]
+      );
+      $paragraph->isNew();
+      $paragraph->save();
+
+      $paragraphs[] = [
+        'target_id' => $paragraph->id(),
+        'target_revision_id' => $paragraph->getRevisionId(),
+      ];
+    }
+
+    return $paragraphs;
   }
 
   /**
