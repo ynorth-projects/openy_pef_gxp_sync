@@ -95,16 +95,17 @@ class OpenYPefGxpMappingRepository {
   public function removeAll() {
     $storage = $this->entityTypeManager->getStorage('openy_pef_gxp_mapping');
 
+    // @todo Consider to move hashes into other location (mappings).
+    \Drupal::state()->delete('openy_pef_gxp_sync_hashes');
+
     $query = $storage->getQuery('openy_pef_gxp_mapping');
     $ids = $query->execute();
+
     if (!$ids) {
       return;
     }
 
     $this->removeByChunk($ids);
-
-    // @todo Consider to move hashes into other location (mappings).
-    \Drupal::state()->delete('openy_pef_gxp_sync_hashes');
   }
 
   /**
