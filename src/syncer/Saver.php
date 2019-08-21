@@ -352,9 +352,9 @@ class Saver implements SaverInterface {
   /**
    * Convert date & time string into GMT timezone DateTime object.
    *
-   * @param $dateString
+   * @param string $dateString
    *   Date string.
-   * @param $timeString
+   * @param string $timeString
    *   Time string.
    *
    * @return \DateTime
@@ -398,7 +398,15 @@ class Saver implements SaverInterface {
     }
 
     // Check if we got not standard pattern.
-    $standardPatternItems = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    $standardPatternItems = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
     if (!in_array(strtolower($class['patterns']['day']), $standardPatternItems)) {
       $message = sprintf(
         'Non supported day string was found. Class ID: %s, string: %s.',
