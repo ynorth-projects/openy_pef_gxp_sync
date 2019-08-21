@@ -24,6 +24,13 @@ class Saver implements SaverInterface {
   const DEBUG = 0;
 
   /**
+   * Static API timezone.
+   *
+   * Introduced to avoid errors with daylight savings.
+   */
+  const API_TIMEZONE = 'Etc/GMT+5';
+
+  /**
    * Wrapper.
    *
    * @var \Drupal\openy_pef_gxp_sync\syncer\WrapperInterface
@@ -114,6 +121,53 @@ class Saver implements SaverInterface {
 
     if (empty($data)) {
       $this->logger->info('%name finished. Nothing new to create.', ['%name' => get_class($this)]);
+    }
+
+    // Use this code debug specific items.
+    if (self::DEBUG) {
+      // Use for pinpoint hard items.
+      foreach ($data as $locationId => $locationData) {
+        if ($locationId != 21) {
+          unset($data[$locationId]);
+          continue;
+        }
+
+        foreach ($locationData as $classId => $classItems) {
+          foreach ($classItems as $sessionId => $class) {
+            if ($class['recurring'] != 'biweekly') {
+              unset($data[$locationId][$classId][$sessionId]);
+            }
+
+            if (!isset($class['exclusions'])) {
+              unset($data[$locationId][$classId][$sessionId]);
+            }
+
+            if ($class['patterns']['day'] != 'Thursday') {
+              unset($data[$locationId][$classId][$sessionId]);
+            }
+
+            if ($class['studio'] != 'Flex B/C') {
+              unset($data[$locationId][$classId][$sessionId]);
+            }
+
+            if ($class['patterns']['start_time'] != '09:30') {
+              unset($data[$locationId][$classId][$sessionId]);
+            }
+
+            if ($class['instructor'] != 'Bruce Tyler') {
+              unset($data[$locationId][$classId][$sessionId]);
+            }
+
+            if (empty($data[$locationId][$classId])) {
+              unset($data[$locationId][$classId]);
+            }
+
+            if (empty($data[$locationId])) {
+              unset($data[$locationId]);
+            }
+          }
+        }
+      }
     }
 
     foreach ($data as $locationId => $locationData) {
@@ -235,22 +289,87 @@ class Saver implements SaverInterface {
    * @throws \Exception
    */
   private function getSessionExclusions(array $class) {
-    $timezone = new \DateTimeZone(WrapperInterface::API_TIMEZONE);
-    $gmt = new \DateTimeZone('GMT');
-
+    $exclusionDateFormat = 'Y-m-d\TH:i:s';
     $exclusions = [];
+
     if (isset($class['exclusions'])) {
       foreach ($class['exclusions'] as $exclusion) {
-        $exclusionStart = (new \DateTime($exclusion . '00:00:00', $timezone))->setTimezone($gmt)->format('Y-m-d\TH:i:s');
-        $exclusionEnd = (new \DateTime($exclusion . '24:00:00', $timezone))->setTimezone($gmt)->format('Y-m-d\TH:i:s');
+        $exclusionStart = $this->convertDateToDateTime($exclusion, $class['patterns']['start_time']);
+        $exclusionEnd = $this->convertDateToDateTime($exclusion, $class['patterns']['end_time']);
         $exclusions[] = [
-          'value' => $exclusionStart,
-          'end_value' => $exclusionEnd,
+          'value' => $exclusionStart->format($exclusionDateFormat),
+          'end_value' => $exclusionEnd->format($exclusionDateFormat),
+        ];
+      }
+    }
+
+    // Generate custom exclusions for biweekly classes.
+    if ($class['recurring'] == 'biweekly') {
+      $interval = new \DateInterval('P2W');
+      $patterns = $class['patterns'];
+
+      $startTime = $this->convertDateToDateTime($class['start_date'], $patterns['start_time']);
+      $startTime->modify('+1 week');
+
+      $endTime = $this->convertDateToDateTime($class['end_date'], $patterns['end_time']);
+
+      $period = new \DatePeriod($startTime, $interval, $endTime);
+      $today = new \DateTime('T00:00:00');
+      $maxDate = clone $today;
+      $maxDate->modify('+2 month');
+
+      /** @var \DateTime $delta */
+      foreach ($period as $delta) {
+        if ($delta < $today) {
+          continue;
+        }
+
+        if ($delta > $maxDate) {
+          continue;
+        }
+
+        /** @var \DateTime $exclusionStartDate */
+        $exclusionStartDate = clone $delta;
+
+        /** @var \DateTime $exclusionEndDate */
+        $exclusionEndDate = clone $delta;
+        $exclusionEndDate->setTime(
+          $endTime->format('H'),
+          $endTime->format('i'),
+          $endTime->format('s')
+        );
+
+        $exclusions[] = [
+          'value' => $exclusionStartDate->format($exclusionDateFormat),
+          'end_value' => $exclusionEndDate->format($exclusionDateFormat),
         ];
       }
     }
 
     return $exclusions;
+  }
+
+  /**
+   * Convert date & time string into GMT timezone DateTime object.
+   *
+   * @param $dateString
+   *   Date string.
+   * @param $timeString
+   *   Time string.
+   *
+   * @return \DateTime
+   *   Object.
+   *
+   * @throws \Exception
+   */
+  private function convertDateToDateTime($dateString, $timeString) {
+    $dateParts = date_parse($dateString);
+    $timeParts = date_parse($timeString);
+    $dateTime = new \DateTime('now', new \DateTimeZone(self::API_TIMEZONE));
+    $dateTime->setDate($dateParts['year'], $dateParts['month'], $dateParts['day']);
+    $dateTime->setTime($timeParts['hour'], $timeParts['minute'], $timeParts['second']);
+    $dateTime->setTimezone(new \DateTimeZone('GMT'));
+    return $dateTime;
   }
 
   /**
@@ -265,25 +384,17 @@ class Saver implements SaverInterface {
    * @throws \Exception
    */
   private function getSessionTime(array $class) {
-    $timezone = new \DateTimeZone(WrapperInterface::API_TIMEZONE);
-    $times = $class['patterns'];
-    $paragraphTimes = [];
+    $patterns = $class['patterns'];
 
-    // Convert to UTC timezone to save to database.
-    $gmtTimezone = new \DateTimeZone('GMT');
+    $startDateTime = $this->convertDateToDateTime($class['start_date'], $patterns['start_time']);
+    $endDateTime = $this->convertDateToDateTime($class['end_date'], $patterns['end_time']);
 
-    $startTime = new \DateTime($class['start_date'] . ' ' . $times['start_time'] . ':00', $timezone);
-    $startTime->setTimezone($gmtTimezone);
-
-    $endTime = new \DateTime($class['end_date'] . ' ' . $times['end_time'] . ':00', $timezone);
-    $endTime->setTimezone($gmtTimezone);
-
-    $startDate = $startTime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT);
-    $endDate = $endTime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT);
+    $startDate = $startDateTime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT);
+    $endDate = $endDateTime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT);
 
     $days = [];
-    if (isset($times['day']) && !empty($times['day'])) {
-      $days[] = strtolower($times['day']);
+    if (isset($patterns['day']) && !empty($patterns['day'])) {
+      $days[] = strtolower($patterns['day']);
     }
 
     // Check if we got not standard pattern.
@@ -297,57 +408,12 @@ class Saver implements SaverInterface {
       throw new \Exception($message);
     }
 
-    // Check if date is corresponds given day.
-    $startTimeApiTimezone = clone $startTime;
-    $startTimeApiTimezone->setTimezone($timezone);
-
-    if (strtolower($startTimeApiTimezone->format('l')) != strtolower($class['patterns']['day'])) {
-      $message = sprintf(
-        'Date does not corresponds the give day. Class ID: %s, Day pattern: %s.',
-        $class['class_id'],
-        $class['patterns']['day']
-      );
-      throw new \Exception($message);
-    }
-
-    switch ($class['recurring']) {
-      case 'biweekly':
-        $currentTime = $this->time->getCurrentTime();
-        $maxTime = new \DateTime();
-        $maxTime->setTimeStamp($currentTime)->modify('+2 month');
-
-        $deltaTime = clone $startTime;
-        $endTimeHours = $endTime->format('H');
-        $endTimeMinutes = $endTime->format('i');
-
-        // Do not sync mor the 2 months forward.
-        $loopEndTime = clone $endTime;
-        $loopEndTime = ($maxTime < $loopEndTime) ? $maxTime : $loopEndTime;
-
-        while ($deltaTime < $loopEndTime) {
-          $deltaTime->modify('+2 week');
-          $deltaTimeUnix = (int) $deltaTime->format('U');
-          if ($deltaTimeUnix > $currentTime && $deltaTime < $loopEndTime) {
-            $startDeltaTime = clone $deltaTime;
-            $endDeltaTime = clone $deltaTime;
-            $endDeltaTime->setTime($endTimeHours, $endTimeMinutes);
-
-            $paragraphTimes[] = [
-              'startTime' => $startDeltaTime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT),
-              'endTime' => $endDeltaTime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT),
-            ];
-          }
-        }
-        break;
-
-      default:
-        $paragraphTimes = [
-          [
-            'startTime' => $startDate,
-            'endTime' => $endDate
-          ]
-        ];
-    }
+    $paragraphTimes = [
+      [
+        'startTime' => $startDate,
+        'endTime' => $endDate,
+      ],
+    ];
 
     $paragraphs = $this->createSessionTimeParagraphs($days, $paragraphTimes);
     return $paragraphs;
@@ -374,7 +440,7 @@ class Saver implements SaverInterface {
       $paragraph->set('field_session_time_date',
         [
           'value' => $item['startTime'],
-          'end_value' => $item['endTime']
+          'end_value' => $item['endTime'],
         ]
       );
       $paragraph->isNew();
