@@ -28,7 +28,7 @@ class Saver implements SaverInterface {
    *
    * Introduced to avoid errors with daylight savings.
    */
-  const API_TIMEZONE = 'Etc/GMT+5';
+  const API_TIMEZONE = 'America/Chicago';
 
   /**
    * Wrapper.
