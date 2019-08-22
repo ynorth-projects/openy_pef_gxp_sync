@@ -127,22 +127,22 @@ class Saver implements SaverInterface {
     if (self::DEBUG) {
       // Use for pinpoint hard items.
       foreach ($data as $locationId => $locationData) {
-        if ($locationId != 21) {
-          unset($data[$locationId]);
-          continue;
-        }
+//        if ($locationId != 5) {
+//          unset($data[$locationId]);
+//          continue;
+//        }
 
         foreach ($locationData as $classId => $classItems) {
           foreach ($classItems as $sessionId => $class) {
-            if ($class['recurring'] != 'daily') {
+            if ($class['recurring'] != 'biweekly') {
               unset($data[$locationId][$classId][$sessionId]);
             }
 
-            if (!isset($class['exclusions'])) {
-              unset($data[$locationId][$classId][$sessionId]);
-            }
+//            if (!isset($class['exclusions'])) {
+//              unset($data[$locationId][$classId][$sessionId]);
+//            }
 
-            if ($class['patterns']['day'] != 'Sunday') {
+            if ($class['patterns']['day'] != 'Thursday') {
               unset($data[$locationId][$classId][$sessionId]);
             }
 
@@ -150,17 +150,17 @@ class Saver implements SaverInterface {
               unset($data[$locationId][$classId][$sessionId]);
             }
 
-            if ($class['patterns']['start_time'] != '09:45') {
+            if ($class['patterns']['start_time'] != '16:40') {
               unset($data[$locationId][$classId][$sessionId]);
             }
 
-            if ($class['instructor'] != 'Bruce Tyler') {
-              unset($data[$locationId][$classId][$sessionId]);
-            }
+//            if ($class['instructor'] != 'Bruce Tyler') {
+//              unset($data[$locationId][$classId][$sessionId]);
+//            }
 
-            if ($class['instructor'] != 'Tiara Commers') {
-              unset($data[$locationId][$classId][$sessionId]);
-            }
+//            if ($class['instructor'] != 'Sandra Breuer (Sub For: Rachael Crew-Reyes)') {
+//              unset($data[$locationId][$classId][$sessionId]);
+//            }
 
             if (empty($data[$locationId][$classId])) {
               unset($data[$locationId][$classId]);
@@ -298,9 +298,11 @@ class Saver implements SaverInterface {
 
     if (isset($class['exclusions'])) {
       foreach ($class['exclusions'] as $exclusion) {
-        $exclusionStart = new \DateTime($exclusion . '00:00:00', new \DateTimeZone('GMT'));
-        $exclusionEnd = new \DateTime($exclusion . '00:00:00', new \DateTimeZone('GMT'));
+        $exclusionStart = new \DateTime($exclusion . '00:00:00', new \DateTimeZone(self::API_TIMEZONE));
+        $exclusionStart->setTimezone(new \DateTimeZone('GMT'));
+        $exclusionEnd = new \DateTime($exclusion . '00:00:00', new \DateTimeZone(self::API_TIMEZONE));
         $exclusionEnd->modify('+1 day');
+        $exclusionEnd->setTimezone(new \DateTimeZone('GMT'));
         $exclusions[] = [
           'value' => $exclusionStart->format($exclusionDateFormat),
           'end_value' => $exclusionEnd->format($exclusionDateFormat),
@@ -335,6 +337,7 @@ class Saver implements SaverInterface {
 
         /** @var \DateTime $exclusionStartDate */
         $exclusionStartDate = clone $delta;
+        $exclusionStartDate->setTimezone(new \DateTimeZone(self::API_TIMEZONE));
         $exclusionStartDate->setTime(0, 0, 0);
 
         /** @var \DateTime $exclusionEndDate */
@@ -342,8 +345,8 @@ class Saver implements SaverInterface {
         $exclusionEndDate->modify('+1 day');
 
         $exclusions[] = [
-          'value' => $exclusionStartDate->format($exclusionDateFormat),
-          'end_value' => $exclusionEndDate->format($exclusionDateFormat),
+          'value' => $exclusionStartDate->setTimezone(new \DateTimeZone('GMT'))->format($exclusionDateFormat),
+          'end_value' => $exclusionEndDate->setTimezone(new \DateTimeZone('GMT'))->format($exclusionDateFormat),
         ];
       }
     }
