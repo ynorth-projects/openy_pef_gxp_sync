@@ -134,15 +134,15 @@ class Saver implements SaverInterface {
 
         foreach ($locationData as $classId => $classItems) {
           foreach ($classItems as $sessionId => $class) {
-            if ($class['recurring'] != 'biweekly') {
-              unset($data[$locationId][$classId][$sessionId]);
-            }
+//            if ($class['recurring'] != 'biweekly') {
+//              unset($data[$locationId][$classId][$sessionId]);
+//            }
 
 //            if (!isset($class['exclusions'])) {
 //              unset($data[$locationId][$classId][$sessionId]);
 //            }
 
-            if ($class['patterns']['day'] != 'Thursday') {
+            if ($class['patterns']['day'] != 'Friday') {
               unset($data[$locationId][$classId][$sessionId]);
             }
 
@@ -150,7 +150,7 @@ class Saver implements SaverInterface {
               unset($data[$locationId][$classId][$sessionId]);
             }
 
-            if ($class['patterns']['start_time'] != '16:40') {
+            if ($class['patterns']['start_time'] != '13:30') {
               unset($data[$locationId][$classId][$sessionId]);
             }
 
@@ -174,9 +174,18 @@ class Saver implements SaverInterface {
       }
     }
 
+    // GroupEx can return complete duplicates for some items. Checking here.
+    $duplicates = [];
+
     foreach ($data as $locationId => $locationData) {
       foreach ($locationData as $classId => $classItems) {
         foreach ($classItems as $class) {
+          $hash = md5(serialize($class));
+          if (in_array($hash, $duplicates)) {
+            continue;
+          }
+
+          $duplicates[] = $hash;
 
           // Check if class is corrupted.
           if (!array_key_exists('patterns', $class)) {
