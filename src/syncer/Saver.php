@@ -134,7 +134,7 @@ class Saver implements SaverInterface {
 
         foreach ($locationData as $classId => $classItems) {
           foreach ($classItems as $sessionId => $class) {
-            if ($class['recurring'] != 'biweekly') {
+            if ($class['recurring'] != 'daily') {
               unset($data[$locationId][$classId][$sessionId]);
             }
 
@@ -142,19 +142,23 @@ class Saver implements SaverInterface {
               unset($data[$locationId][$classId][$sessionId]);
             }
 
-            if ($class['patterns']['day'] != 'Thursday') {
+            if ($class['patterns']['day'] != 'Sunday') {
               unset($data[$locationId][$classId][$sessionId]);
             }
 
-            if ($class['studio'] != 'Flex B/C') {
+            if ($class['studio'] != 'Studio 3') {
               unset($data[$locationId][$classId][$sessionId]);
             }
 
-            if ($class['patterns']['start_time'] != '09:30') {
+            if ($class['patterns']['start_time'] != '09:45') {
               unset($data[$locationId][$classId][$sessionId]);
             }
 
             if ($class['instructor'] != 'Bruce Tyler') {
+              unset($data[$locationId][$classId][$sessionId]);
+            }
+
+            if ($class['instructor'] != 'Tiara Commers') {
               unset($data[$locationId][$classId][$sessionId]);
             }
 
@@ -294,8 +298,9 @@ class Saver implements SaverInterface {
 
     if (isset($class['exclusions'])) {
       foreach ($class['exclusions'] as $exclusion) {
-        $exclusionStart = $this->convertDateToDateTime($exclusion, $class['patterns']['start_time']);
-        $exclusionEnd = $this->convertDateToDateTime($exclusion, $class['patterns']['end_time']);
+        $exclusionStart = new \DateTime($exclusion . '00:00:00', new \DateTimeZone('GMT'));
+        $exclusionEnd = new \DateTime($exclusion . '00:00:00', new \DateTimeZone('GMT'));
+        $exclusionEnd->modify('+1 day');
         $exclusions[] = [
           'value' => $exclusionStart->format($exclusionDateFormat),
           'end_value' => $exclusionEnd->format($exclusionDateFormat),
@@ -330,14 +335,11 @@ class Saver implements SaverInterface {
 
         /** @var \DateTime $exclusionStartDate */
         $exclusionStartDate = clone $delta;
+        $exclusionStartDate->setTime(0, 0, 0);
 
         /** @var \DateTime $exclusionEndDate */
-        $exclusionEndDate = clone $delta;
-        $exclusionEndDate->setTime(
-          $endTime->format('H'),
-          $endTime->format('i'),
-          $endTime->format('s')
-        );
+        $exclusionEndDate = clone $exclusionStartDate;
+        $exclusionEndDate->modify('+1 day');
 
         $exclusions[] = [
           'value' => $exclusionStartDate->format($exclusionDateFormat),
