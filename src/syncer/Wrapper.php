@@ -204,6 +204,13 @@ class Wrapper implements WrapperInterface {
   /**
    * {@inheritdoc}
    */
+  public function updateSourceData(array $data) {
+    $this->sourceData = $data;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getProcessedData() {
     if (!empty($this->processedData)) {
       return $this->processedData;
