@@ -31,6 +31,13 @@ class DataFixer implements DataFixerInterface {
   const API_TIMEZONE = 'America/Chicago';
 
   /**
+   * Number of weeks.
+   *
+   * Number.
+   */
+  const COUNT_WEEKS = 5;
+
+  /**
    * Http client.
    *
    * @var \GuzzleHttp\ClientInterface
@@ -93,7 +100,6 @@ class DataFixer implements DataFixerInterface {
    * @throws \Exception
    */
   public function fix() {
-    // @TODO refactor duplicate code.
     $this->logger->info('%name started.', ['%name' => get_class($this)]);
     $locations = $this->mappingRepository->loadAllLocationsWithGroupExId();
 
@@ -109,7 +115,7 @@ class DataFixer implements DataFixerInterface {
         'end' => $endWeek->getTimestamp(),
       ],
     ];
-    foreach (range(1, 4) as $week_index) {
+    foreach (range(1, self::COUNT_WEEKS - 1) as $week_index) {
       $startWeek->modify('+8 day');
       $endWeek = clone $startWeek;
       $endWeek->modify('+7 day');
@@ -119,8 +125,6 @@ class DataFixer implements DataFixerInterface {
       ];
     }
 
-    $cancelledData = [];
-    $subData = [];
     $allEmbedData = [];
     foreach ($weeks as $week_index => $week) {
       foreach ($locations as $location) {
@@ -146,53 +150,6 @@ class DataFixer implements DataFixerInterface {
 
         $allEmbedData[$week_index][$locationId] = $body;
 
-        foreach ($body as $schedule) {
-          // Get data for cancelled session.
-          if (isset($schedule['canceled']) && $schedule['canceled'] == 'true') {
-            $tempTitle = $schedule['title'];
-
-            // Delete 'CANCELLED:' from title.
-            if (!empty(trim($schedule['title']))) {
-              $tempTitle = explode(' ', trim($schedule['title']));
-              unset($tempTitle[0]);
-              $tempTitle = implode(' ', $tempTitle);
-              $tempTitle = str_replace('®', '', $tempTitle);
-            }
-            // Move original_instructor to instructor.
-            $schedule['instructor'] = $schedule['original_instructor'];
-            unset($schedule['original_instructor']);
-
-            // Set hash for field title, studio, instructor, category, time.
-            $schedule['hash'] = (string) sha1(serialize(
-              [
-                (string) trim(utf8_encode($tempTitle)),
-                (string) trim($schedule['studio']),
-                (string) trim($schedule['instructor']),
-                (string) trim($schedule['category']),
-                (string) trim($schedule['time']),
-              ]
-            ));
-
-            $cancelledData[$week_index][$locationId][$schedule['id']] = $schedule;
-          }
-          // Create array for sub instructor.
-          if (!empty(trim($schedule['sub_instructor'])) && !isset($schedule['canceled'])) {
-            // Move original_instructor to instructor.
-            $schedule['instructor'] = $schedule['original_instructor'];
-            unset($schedule['original_instructor']);
-            $tempTitle = str_replace('®', '', $schedule['title']);
-            $schedule['hash'] = (string) sha1(serialize(
-              [
-                (string) trim(utf8_encode($tempTitle)),
-                (string) trim($schedule['studio']),
-                (string) trim($schedule['instructor']),
-                (string) trim($schedule['category']),
-                (string) trim($schedule['time']),
-              ]
-            ));
-            $subData[$week_index][$locationId][$schedule['id']] = $schedule;
-          }
-        }
         $this->logger->info('Week index: %week Get data for location ID: %id finish', ['%id' => $locationId, '%week' => $week_index]);
       }
     }
@@ -203,118 +160,99 @@ class DataFixer implements DataFixerInterface {
     $newClasses = [];
     foreach ($data as $locationId => $location) {
       foreach ($location as $class_index => $class) {
+        if (!isset($class['recurring']) || !isset($class['title'])) {
+          continue;
+        }
         foreach ($weeks as $week_index => $week) {
-          if (isset($class['recurring'])) {
-            // Format time.
+          if (!isset($class)) {
+            continue;
+          }
+          if (isset($allEmbedData[$week_index][$locationId])) {
+            // Format time for class.
             $originalStartTime = explode(':', $class['patterns']['start_time']);
             $originalEndTime = explode(':', $class['patterns']['end_time']);
             $startTime = new DateTime('NOW');
             $endTime = new DateTime('NOW');
             $startTime->setTime($originalStartTime[0], $originalStartTime[1]);
             $endTime->setTime($originalEndTime[0], $originalEndTime[1]);
-            $time = $startTime->format('g:ia') . '-' . $endTime->format('g:ia');
+            $classTime = $startTime->format('g:ia') . '-' . $endTime->format('g:ia');
 
-            // Set hash for class.
-            $tempTitle = str_replace('Â®', '', trim($class['title']));
-            $hash = (string) sha1(serialize(
-              [
-                (string) trim(utf8_encode($tempTitle)),
-                (string) trim($class['studio']),
-                (string) trim($class['instructor']),
-                (string) trim($class['category']),
-                (string) trim($time),
-              ]
-            ));
+            foreach ($allEmbedData[$week_index][$locationId] as $schedule) {
+              $scheduleTitle = trim($schedule['title']);
+              // Clear title for compare.
+              $scheduleTitle = str_replace('Â®', 'R', $scheduleTitle);
+              $scheduleTitle = str_replace('®', 'R', $scheduleTitle);
 
-            // Create exclusion for base class and create new cancelled class.
-            if (isset($cancelledData[$week_index][$locationId])) {
-              foreach ($cancelledData[$week_index][$locationId] as $schedule) {
-                if ($schedule['hash'] == $hash) {
-                  // Parse date.
-                  $date = explode(',', $schedule['date']);
-
-                  // Create new cancelled class.
-                  $newClass = $class;
-                  $newClass['title'] = ' CANCELLED: ' . $class['title'];
-                  $newClass['start_date'] = implode(',', $date);
-                  $newClass['end_date'] = implode(',', $date);
-                  $newClass['recurring'] = 'none';
-                  $newClasses[$locationId][$schedule['id']] = $newClass;
-
-                  // Set exclusions for base class.
-                  if (!isset($data[$locationId][$class_index]['exclusions'])) {
-                    $data[$locationId][$class_index]['exclusions'] = [];
-                  }
-                  if (!in_array(trim($date[1] . ', ' . $date[2]), $data[$locationId][$class_index]['exclusions'])) {
-                    $data[$locationId][$class_index]['exclusions'][] = trim($date[1] . ', ' . $date[2]);
-                  }
-
-                }
-              }
-            }
-
-            // Create exclusion for base class and create new class
-            // with sub instructor.
-            if (isset($subData[$week_index][$locationId])) {
-              foreach ($subData[$week_index][$locationId] as $schedule) {
-                if ($schedule['hash'] == $hash) {
-                  // Parse date.
-                  $date = explode(',', $schedule['date']);
-
-                  // Create new class with sub instructor.
-                  $newClass = $class;
-                  $newClass['start_date'] = implode(',', $date);
-                  $newClass['end_date'] = implode(',', $date);
-                  $newClass['instructor'] = $schedule['sub_instructor'] . '(Sub For: ' . $schedule['instructor'] . ')';
-                  $newClasses[$locationId][$schedule['id']] = $newClass;
-
-                  // Set exclusions for base class.
-                  if (!isset($data[$locationId][$class_index]['exclusions'])) {
-                    $data[$locationId][$class_index]['exclusions'] = [];
-                  }
-                  if (!in_array(trim($date[1] . ', ' . $date[2]), $data[$locationId][$class_index]['exclusions'])) {
-                    $data[$locationId][$class_index]['exclusions'][] = trim($date[1] . ', ' . $date[2]);
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        // Fix for monthly.
-        if (!isset($class['recurring'])) {
-          continue;
-        }
-        if ($class['recurring'] == 'monthly') {
-          // Format time.
-          $originalStartTime = explode(':', $class['patterns']['start_time']);
-          $originalEndTime = explode(':', $class['patterns']['end_time']);
-          $startTime = new DateTime('NOW');
-          $endTime = new DateTime('NOW');
-          $startTime->setTime($originalStartTime[0], $originalStartTime[1]);
-          $endTime->setTime($originalEndTime[0], $originalEndTime[1]);
-          $time = $startTime->format('g:ia') . '-' . $endTime->format('g:ia');
-          foreach ($allEmbedData as $week) {
-            foreach ($week[$locationId] as $schedule) {
-              if (
-                $schedule['original_instructor'] == $class['instructor']
-                && $schedule['studio'] == $class['studio']
-                && str_replace('®', '', $schedule['title']) == str_replace('Â®', '', trim($class['title']))
-                && $schedule['category'] == $class['category']
-                && $schedule['category'] == $class['category']
-                && trim($schedule['time']) == $time
+              // Delete 'CANCELLED:' from title.
+              $scheduleTitleCancelled = $scheduleTitle;
+              if (!empty(trim($schedule['title']))
+                && isset($schedule['canceled'])
+                && $schedule['canceled'] == 'true'
               ) {
+                $scheduleTitleCancelled = explode(' ', $scheduleTitle);
+                unset($scheduleTitleCancelled[0]);
+                $scheduleTitleCancelled = implode(' ', $scheduleTitleCancelled);
+              }
+
+              // Clear title for compare.
+              $classTitle = trim($class['title']);
+              $classTitle = str_replace('Â®', 'R', $classTitle);
+              $classTitle = str_replace('®', 'R', $classTitle);
+
+              $compareTitle = strcasecmp($scheduleTitle, $classTitle) === 0 || strcasecmp($scheduleTitleCancelled, $classTitle) === 0;
+              $compareInstructor = strcasecmp(trim($schedule['original_instructor']), trim($class['instructor'])) === 0;
+              $compareStudio = strcasecmp(trim($schedule['studio']), trim($class['studio'])) === 0;
+              $compareCategory = strcasecmp(trim($schedule['category']), trim($class['category'])) === 0;
+              $compareTime = strcasecmp(trim($schedule['time']), trim($classTime)) === 0;
+
+              if ($compareInstructor && $compareStudio && $compareTitle && $compareCategory && $compareTime) {
+                $scheduleId = (int) ($week_index . $schedule['id']);
                 // Parse date.
                 $date = explode(',', $schedule['date']);
 
-                // Create new class without recurring.
-                $newClass = $class;
-                $newClass['start_date'] = implode(',', $date);
-                $newClass['end_date'] = implode(',', $date);
-                $newClasses[$locationId][$schedule['id']] = $newClass;
-                unset($data[$locationId][$class_index]);
+                // Fix for monthly.
+                if ($class['recurring'] == 'monthly') {
+                  // Create new class without recurring.
+                  $newClass = $this->createClass($class, implode(',', $date));
+                  $newClasses[$locationId][$scheduleId] = $newClass;
+                  unset($data[$locationId][$class_index]);
+                }
+
+                // Create exclusion for base class and create new class
+                // with sub instructor.
+                if (!empty(trim($schedule['sub_instructor']))) {
+                  // Create new class with sub instructor.
+                  if (!isset($newClasses[$locationId][$scheduleId])) {
+                    $newClass = $this->createClass($class, implode(',', $date));
+                    $newClass['instructor'] = $schedule['sub_instructor'] . '(Sub For: ' . $schedule['original_instructor'] . ')';
+                    $newClasses[$locationId][$scheduleId] = $newClass;
+                  }
+                  else {
+                    $newClasses[$locationId][$scheduleId]['instructor'] = $schedule['sub_instructor'] . '(Sub For: ' . $schedule['original_instructor'] . ')';
+                  }
+                  // Set exclusions for base class.
+                  $this->createExclusion($data, $locationId, $class_index, $date);
+                }
+
+                // Create exclusion for base class and create new cancelled
+                // class.
+                if (isset($schedule['canceled']) && $schedule['canceled'] == 'true') {
+                  // Create new cancelled class.
+                  if (!isset($newClasses[$locationId][$scheduleId])) {
+                    $newClass = $this->createClass($class, implode(',', $date));
+                    $newClass['title'] = ' CANCELLED: ' . $class['title'];
+                    $newClasses[$locationId][$scheduleId] = $newClass;
+                  }
+                  else {
+                    $newClasses[$locationId][$scheduleId]['title'] = ' CANCELLED: ' . $class['title'];
+                  }
+
+                  // Set exclusions for base class.
+                  $this->createExclusion($data, $locationId, $class_index, $date);
+                }
               }
-              else {
+              // Fix for monthly.
+              elseif ($class['recurring'] == 'monthly') {
                 unset($data[$locationId][$class_index]);
               }
             }
@@ -331,6 +269,29 @@ class DataFixer implements DataFixerInterface {
     }
     $this->wrapper->updateSourceData($newData);
     $this->logger->info('%name finish.', ['%name' => get_class($this)]);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function createClass(array $class, string $date) {
+    $newClass = $class;
+    $newClass['start_date'] = $date;
+    $newClass['end_date'] = $date;
+    $newClass['recurring'] = 'none';
+    return $newClass;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected  function createExclusion(array &$data, int $locationId, int $class_index, array $date) {
+    if (!isset($data[$locationId][$class_index]['exclusions'])) {
+      $data[$locationId][$class_index]['exclusions'] = [];
+    }
+    if (!in_array(trim($date[1] . ', ' . $date[2]), $data[$locationId][$class_index]['exclusions'])) {
+      $data[$locationId][$class_index]['exclusions'][] = trim($date[1] . ', ' . $date[2]);
+    }
   }
 
 }
