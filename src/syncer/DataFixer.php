@@ -38,6 +38,13 @@ class DataFixer implements DataFixerInterface {
   const COUNT_WEEKS = 5;
 
   /**
+   * Cache lifetime in seconds.
+   *
+   * Seconds.
+   */
+  const CACHE_LIFE = 3600;
+
+  /**
    * Http client.
    *
    * @var \GuzzleHttp\ClientInterface
@@ -132,7 +139,6 @@ class DataFixer implements DataFixerInterface {
         $locationGpxId = $location->field_groupex_id->value;
         $locationId = $location->field_location_ref->target_id;
 
-        $cacheLife = 60 * 60;
         $timeNow = new DateTime('NOW');
         $timeNow = (int) $timeNow->getTimestamp();
 
@@ -146,7 +152,7 @@ class DataFixer implements DataFixerInterface {
             throw new OpenYPefGxpSyncException(sprintf('Failed to get schedules for location with ID: %d', $locationGpxId));
           }
           $body = json_decode((string) $request->getBody(), TRUE);
-          $this->cacheBackend->set(get_class($this) . '_new_' . $locationId . $week_index, $body, $timeNow + $cacheLife);
+          $this->cacheBackend->set(get_class($this) . '_new_' . $locationId . $week_index, $body, $timeNow + self::CACHE_LIFE);
         }
         else {
           $body = $cache->data;
