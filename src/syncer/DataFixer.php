@@ -222,9 +222,16 @@ class DataFixer implements DataFixerInterface {
 
                 // Fix for monthly.
                 if ($class['recurring'] == 'monthly') {
-                  // Create new class without recurring.
-                  $newClass = $this->createClass($class, implode(',', $date));
-                  $newClasses[$locationId][$scheduleId] = $newClass;
+                  // Get day for recurring.
+                  $classDay = explode(' ', explode(',', trim($class['start_date']))[0])[1];
+                  $scheduleDay = explode(' ', trim($date[1]))[1];
+
+                  if ($classDay == $scheduleDay) {
+                    // Create new class without recurring.
+                    $newClass = $this->createClass($class, implode(',', $date));
+                    $newClass['exclusions'] = $class['exclusions'];
+                    $newClasses[$locationId][$scheduleId] = $newClass;
+                  }
                   unset($data[$locationId][$class_index]);
                 }
 
