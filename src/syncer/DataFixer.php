@@ -220,21 +220,6 @@ class DataFixer implements DataFixerInterface {
                 // Parse date.
                 $date = explode(',', $schedule['date']);
 
-                // Fix for monthly.
-                if ($class['recurring'] == 'monthly') {
-                  // Get day for recurring.
-                  $classDay = explode(' ', explode(',', trim($class['start_date']))[0])[1];
-                  $scheduleDay = explode(' ', trim($date[1]))[1];
-
-                  if ($classDay == $scheduleDay) {
-                    // Create new class without recurring.
-                    $newClass = $this->createClass($class, implode(',', $date));
-                    $newClass['exclusions'] = $class['exclusions'];
-                    $newClasses[$locationId][$scheduleId] = $newClass;
-                  }
-                  unset($data[$locationId][$class_index]);
-                }
-
                 // Create exclusion for base class and create new class
                 // with sub instructor.
                 if (!empty(trim($schedule['sub_instructor']))) {
@@ -267,10 +252,6 @@ class DataFixer implements DataFixerInterface {
                   // Set exclusions for base class.
                   $this->createExclusion($data, $locationId, $class_index, $date);
                 }
-              }
-              // Fix for monthly.
-              elseif ($class['recurring'] == 'monthly') {
-                unset($data[$locationId][$class_index]);
               }
             }
           }

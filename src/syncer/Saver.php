@@ -319,6 +319,14 @@ class Saver implements SaverInterface {
       }
     }
 
+    if ($class['recurring'] == 'monthly') {
+      $patterns = $class['patterns'];
+      $startTime = $this->convertDateToDateTime($class['start_date'], $patterns['start_time']);
+      $endTime = $this->convertDateToDateTime($class['end_date'], $patterns['end_time']);
+      $monthlyExclusions = $this->createExclusionsMonthly($startTime, $endTime, $exclusionDateFormat);
+      $exclusions = array_merge($exclusions, $monthlyExclusions);
+    }
+
     // Generate custom exclusions for biweekly classes.
     if ($class['recurring'] == 'biweekly') {
       $interval = new \DateInterval('P2W');
@@ -421,6 +429,12 @@ class Saver implements SaverInterface {
       'saturday',
       'sunday',
     ];
+
+    // Set repeat for monthly recurring every day.
+    if ($class['recurring'] == 'monthly') {
+      $days = $standardPatternItems;
+    }
+
     if (!in_array(strtolower($class['patterns']['day']), $standardPatternItems)) {
       $message = sprintf(
         'Non supported day string was found. Class ID: %s, string: %s.',
@@ -572,6 +586,102 @@ class Saver implements SaverInterface {
       'target_id' => $class->id(),
       'target_revision_id' => $class->getRevisionId(),
     ];
+  }
+
+  /**
+   * Create exclusions for monthly.
+   *
+   * @param \DateTime $begin
+   *   Time.
+   * @param \DateTime $end
+   *   Time.
+   * @param string $exclusionDateFormat
+   *   String.
+   *
+   * @return array
+   *   Exclusions.
+   *
+   * @throws \Exception
+   */
+  private function createExclusionsMonthly(\DateTime $begin, \DateTime $end, string $exclusionDateFormat) {
+    $now = new \DateTime('now');
+
+    // Case for a completed session.
+    if ($now > $end) {
+      return [];
+    };
+
+    $rangeStart = clone $begin;
+    $rangeStart->setDate($now->format('Y'), $now->format('m'), 1);
+    $interval = new \DateInterval('P1M');
+    $rangeEnd = clone $rangeStart;
+    $rangeEnd->modify('+4 month');
+    $rangeEnd->setDate($rangeEnd->format('Y'), $rangeEnd->format('m'), $begin->format('d'));
+    $dateRange = new \DatePeriod($rangeStart, $interval, $rangeEnd);
+
+    $dates = [];
+
+    // Create range for monthly.
+    foreach ($dateRange as $date) {
+      // Case for feb.
+      if ($date->format('m') == '02' && (int) $begin->format('d') > 28) {
+        $date->modify("last day of this month");
+        $dates[] = $date;
+        continue;
+      }
+      // Case for last day of month.
+      if ((int) $begin->format('d') > 30) {
+        $date->modify("last day of this month");
+        $dates[] = $date;
+        continue;
+      }
+      $date->setDate($date->format('Y'), $date->format('m'), $begin->format('d'));
+      $dates[] = $date;
+    }
+
+
+    // Create exclusions for monthly.
+    $exclusions = [];
+    $firstExclusionsStart = clone $dates[0];
+    $firstExclusionsStart->modify('-1 month');
+    $firstExclusionsStart->setTime(0, 0, 0);
+    $firstExclusionsEnd = clone $dates[0];
+    $firstExclusionsEnd->modify('-1 day');
+    $firstExclusionsEnd->setTime(23, 59, 0);
+    $exclusions[] = [
+      'value' => $firstExclusionsStart->setTimezone(new \DateTimeZone('GMT'))->format($exclusionDateFormat),
+      'end_value' => $firstExclusionsEnd->setTimezone(new \DateTimeZone('GMT'))->format($exclusionDateFormat),
+    ];
+    foreach ($dates as $date) {
+      $startExclusions = clone $date;
+      $startExclusions->modify('+1 day');
+      $startExclusions->setTime(0, 0, 0);
+
+      $endExclusions = clone $date;
+      $endExclusions->modify('+1 month');
+      $endExclusions->modify('-1 day');
+      $endExclusions->setTime(23, 59, 0);
+      // Case for feb.
+      if ($date->format('m') == '01' && (int) $begin->format('d') > 28) {
+        $endExclusions = clone $date;
+        $endExclusions->modify("last day of next month");
+        $endExclusions->modify('-1 day');
+        $endExclusions->setTime(23, 59, 0);
+      }
+      // Case for last day of month.
+      if ((int) $begin->format('d') > 30) {
+        $endExclusions = clone $date;
+        $endExclusions->modify("last day of next month");
+        $endExclusions->modify('-1 day');
+        $endExclusions->setTime(23, 59, 0);
+      }
+
+      $exclusions[] = [
+        'value' => $startExclusions->setTimezone(new \DateTimeZone('GMT'))->format($exclusionDateFormat),
+        'end_value' => $endExclusions->setTimezone(new \DateTimeZone('GMT'))->format($exclusionDateFormat),
+      ];
+    }
+    return $exclusions;
   }
 
 }
