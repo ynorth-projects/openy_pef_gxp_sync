@@ -538,9 +538,17 @@ class Saver implements SaverInterface {
       $activity = $nodeStorage->load($activityId);
     }
 
+    // Remove CANCELLED from class.
+    $title = $class['title'];
+    $titleArray = explode(' ', trim($class['title']));
+    if ($titleArray[0] === 'CANCELLED:') {
+      unset($titleArray[0]);
+      $title = implode(' ', $titleArray);
+    }
+
     // Try to find class.
     $existingClasses = $nodeStorage->getQuery()
-      ->condition('title', $class['title'])
+      ->condition('title', $title)
       ->condition('field_class_activity', $activity->id())
       ->condition('field_class_description', $class['description'])
       ->execute();
@@ -564,7 +572,7 @@ class Saver implements SaverInterface {
         'uid' => 1,
         'lang' => 'und',
         'type' => 'class',
-        'title' => $class['title'],
+        'title' => $title,
         'field_class_description' => [
           [
             'value' => $class['description'],
