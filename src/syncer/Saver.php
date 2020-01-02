@@ -539,7 +539,7 @@ class Saver implements SaverInterface {
     }
 
     // Remove CANCELLED from class.
-    $title = $class['title'];
+    $title = trim($class['title']);
     $titleArray = explode(' ', trim($class['title']));
     if ($titleArray[0] === 'CANCELLED:') {
       unset($titleArray[0]);
@@ -548,14 +548,23 @@ class Saver implements SaverInterface {
 
     // Try to find class.
     $existingClasses = $nodeStorage->getQuery()
+      ->condition('type', 'class')
       ->condition('title', $title)
       ->condition('field_class_activity', $activity->id())
-      ->condition('field_class_description', $class['description'])
       ->execute();
 
     if (!empty($existingClasses)) {
+      $description = trim($class['description']);
       $classId = reset($existingClasses);
+      /* @var Node $class*/
       $class = $nodeStorage->load($classId);
+      if (strcmp($class->get('field_class_description')->getString(), $description) !== 0) {
+        $class->setNewRevision(TRUE);
+        $class->setRevisionLogMessage('Update class description from api for node:' . $class->id());
+        $class->setRevisionCreationTime($this->time->getRequestTime());
+        $class->set('field_class_description', $description);
+        $class->save();
+      }
     }
     else {
       $paragraphs = [];
