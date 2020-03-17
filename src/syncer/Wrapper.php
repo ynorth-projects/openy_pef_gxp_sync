@@ -204,13 +204,6 @@ class Wrapper implements WrapperInterface {
   /**
    * {@inheritdoc}
    */
-  public function updateSourceData(array $data) {
-    $this->sourceData = $data;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function getProcessedData() {
     if (!empty($this->processedData)) {
       return $this->processedData;
@@ -236,10 +229,6 @@ class Wrapper implements WrapperInterface {
     $grouped = [];
     foreach ($data as $locationId => $locationItems) {
       foreach ($locationItems as $item) {
-        // Omit corrupted classes.
-        if (!isset($item['class_id'])) {
-          continue;
-        }
         $grouped[$locationId][$item['class_id']][] = $item;
       }
     }

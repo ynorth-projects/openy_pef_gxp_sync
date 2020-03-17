@@ -10,9 +10,7 @@ use Drupal\openy_pef_gxp_sync\OpenYPefGxpSyncException;
 use GuzzleHttp\ClientInterface as HttpClientInterface;
 
 /**
- * Class FetcherEmbed.
- *
- * Uses the old API to get classes.
+ * Class Fetcher.
  *
  * @package Drupal\openy_pef_gxp_sync\syncer
  */
@@ -233,20 +231,20 @@ class FetcherEmbed implements FetcherInterface {
    */
   private function createClassItem(array $data) {
     $classItem = [
-      'class_id' => $data['id'],
-      'category' => $data['category'],
-      'location' => $data['location'],
-      'title' => $data['title'],
-      'description' => $this->getDescription($data),
+      'class_id' => trim($data['id']),
+      'category' => trim($data['category']),
+      'location' => trim($data['location']),
+      'title' => trim($data['title']),
+      'description' => trim($this->getDescription($data)),
       'start_date' => $this->getStartDate($data),
       'end_date' => $this->getEndDate($data),
       'recurring' => 'weekly',
-      'studio' => $data['studio'],
-      'instructor' => strip_tags($data['instructor']),
+      'studio' => trim($data['studio']),
+      'instructor' => trim(strip_tags($data['instructor'])),
       'patterns' => [
-        'day' => $this->getDay($data),
-        'start_time' => $this->getStartTime($data),
-        'end_time' => $this->getEndTime($data),
+          'day' => $this->getDay($data),
+          'start_time' => $this->getStartTime($data),
+          'end_time' => $this->getEndTime($data),
       ],
     ];
 

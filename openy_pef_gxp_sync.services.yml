@@ -42,14 +42,6 @@ services:
     class: Drupal\openy_pef_gxp_sync\syncer\FetcherDebugger
     arguments:
       - '@openy_pef_gxp_sync.wrapper'
-  openy_pef_gxp_sync.data_fixer:
-    class: Drupal\openy_pef_gxp_sync\syncer\DataFixer
-    arguments:
-      - '@http_client'
-      - '@openy_pef_gxp_sync.wrapper'
-      - '@logger.channel.openy_pef_gxp_sync'
-      - '@openy_pef_gxp_sync.cache'
-      - '@openy_mappings.location_repository'
   openy_pef_gxp_sync.cleaner:
     class: Drupal\openy_pef_gxp_sync\syncer\Cleaner
     arguments:
@@ -64,17 +56,14 @@ services:
       - '@openy_pef_gxp_sync_mapping.repository'
       - '@entity_type.manager'
       - '@config.factory'
-      - '@datetime.time'
   openy_pef_gxp_sync.syncer:
     class: Drupal\ymca_sync\Syncer
     arguments: []
     calls:
       - [addStep, ['@openy_pef_gxp_sync.fetcher', 'fetch']]
-      - [addStep, ['@openy_pef_gxp_sync.data_fixer', 'fix']]
+      - [addStep, ['@openy_pef_gxp_sync.fetcher_embed', 'fetch']]
       - [addStep, ['@openy_pef_gxp_sync.wrapper', 'prepare']]
       - [addStep, ['@openy_pef_gxp_sync.cleaner', 'clean']]
       - [addStep, ['@openy_pef_gxp_sync.saver', 'save']]
     tags:
       - { name: syncer }
-  openy_pef_gxp_sync.data_investigation_helper:
-    class: Drupal\openy_pef_gxp_sync\syncer\DataInvestigationHelper

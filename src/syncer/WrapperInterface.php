@@ -10,11 +10,6 @@ namespace Drupal\openy_pef_gxp_sync\syncer;
 interface WrapperInterface {
 
   /**
-   * Timezone of the API results.
-   */
-  const API_TIMEZONE = 'America/Chicago';
-
-  /**
    * Get source data.
    */
   public function getSourceData();
