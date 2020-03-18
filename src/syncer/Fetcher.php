@@ -138,6 +138,16 @@ class Fetcher implements FetcherInterface {
       }
     }
 
+    // Example of data investigation.
+    if (self::DEBUG_MODE) {
+      // Instantiate investigator service.
+      // $i = \Drupal::service('openy_pef_gxp_sync.data_investigation_helper');
+      // Set source data. Required action.
+      // $i->setData($this->wrapper->getSourceData());
+      // Run any method you are interested in or create new one.
+      // $i->getPossibleRecurringValues();
+    }
+
     $this->logger->info('%name finished.', ['%name' => get_class($this)]);
   }
 
