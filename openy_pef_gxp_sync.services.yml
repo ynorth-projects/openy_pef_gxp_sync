@@ -50,6 +50,7 @@ services:
       - '@logger.channel.openy_pef_gxp_sync'
       - '@openy_pef_gxp_sync.cache'
       - '@openy_mappings.location_repository'
+      - '@config.factory'
   openy_pef_gxp_sync.cleaner:
     class: Drupal\openy_pef_gxp_sync\syncer\Cleaner
     arguments:

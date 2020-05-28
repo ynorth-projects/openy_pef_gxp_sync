@@ -5,6 +5,7 @@ namespace Drupal\openy_pef_gxp_sync\syncer;
 use DateTime;
 use DateTimeZone;
 use Drupal\Core\Cache\CacheBackendInterface;
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Logger\LoggerChannel;
 use Drupal\openy_mappings\LocationMappingRepository;
 use Drupal\openy_pef_gxp_sync\OpenYPefGxpSyncException;
@@ -80,6 +81,13 @@ class DataFixer implements DataFixerInterface {
   protected $mappingRepository;
 
   /**
+   * Config Factory.
+   *
+   * @var \Drupal\Core\Config\ConfigFactoryInterface
+   */
+  protected $configFactory;
+
+  /**
    * DataFixer constructor.
    *
    * @param \GuzzleHttp\ClientInterface $client
@@ -92,13 +100,16 @@ class DataFixer implements DataFixerInterface {
    *   Cache backend.
    * @param \Drupal\openy_mappings\LocationMappingRepository $mappingRepository
    *   Location mapping repo.
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
+   *   Config Factory.
    */
-  public function __construct(HttpClientInterface $client, WrapperInterface $wrapper, LoggerChannel $loggerChannel, CacheBackendInterface $cacheBackend, LocationMappingRepository $mappingRepository) {
+  public function __construct(HttpClientInterface $client, WrapperInterface $wrapper, LoggerChannel $loggerChannel, CacheBackendInterface $cacheBackend, LocationMappingRepository $mappingRepository, ConfigFactoryInterface $configFactory) {
     $this->client = $client;
     $this->wrapper = $wrapper;
     $this->logger = $loggerChannel;
     $this->cacheBackend = $cacheBackend;
     $this->mappingRepository = $mappingRepository;
+    $this->configFactory = $configFactory;
   }
 
   /**
@@ -109,7 +120,7 @@ class DataFixer implements DataFixerInterface {
   public function fix() {
     $this->logger->info('%name started.', ['%name' => get_class($this)]);
     $locations = $this->mappingRepository->loadAllLocationsWithGroupExId();
-
+    $enableLocations = $this->configFactory->get('openy_pef_gxp_sync.enable_locations')->get('locations');
     // Set weeks range.
     $startWeek = new DateTime('now', new DateTimeZone(self::API_TIMEZONE));
     $startWeek->setTimestamp(strtotime("this week"));
@@ -138,6 +149,11 @@ class DataFixer implements DataFixerInterface {
         // Get locations.
         $locationGpxId = $location->field_groupex_id->value;
         $locationId = $location->field_location_ref->target_id;
+
+        // Continue if location disable.
+        if (!in_array((int) $locationGpxId, $enableLocations)) {
+          continue;
+        }
 
         $timeNow = new DateTime('NOW');
         $timeNow = (int) $timeNow->getTimestamp();

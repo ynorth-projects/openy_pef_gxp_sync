@@ -111,10 +111,16 @@ class Fetcher implements FetcherInterface {
     $apiPrefix = self::API_URL . $clientId . '/';
 
     $locations = $this->mappingRepository->loadAllLocationsWithGroupExId();
+    $enableLocations = $this->configFactory->get('openy_pef_gxp_sync.enable_locations')->get('locations');
 
     foreach ($locations as $location) {
       $locationGpxId = $location->field_groupex_id->value;
       $locationId = $location->field_location_ref->target_id;
+
+      // Continue if location disable.
+      if (!in_array((int) $locationGpxId, $enableLocations)) {
+        continue;
+      }
 
       if (self::DEBUG_MODE && $cachedData = $this->cacheBackend->get(get_class($this) . '_new_' . $locationId)) {
         $this->wrapper->setSourceData($locationId, $cachedData->data);
