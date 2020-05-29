@@ -111,7 +111,7 @@ class Fetcher implements FetcherInterface {
     $apiPrefix = self::API_URL . $clientId . '/';
 
     $locations = $this->mappingRepository->loadAllLocationsWithGroupExId();
-    $enableLocations = $this->configFactory->get('openy_pef_gxp_sync.enable_locations')->get('locations');
+    $enableLocations = $this->configFactory->get('openy_pef_gxp_sync.enabled_locations')->get('locations');
 
     foreach ($locations as $location) {
       $locationGpxId = $location->field_groupex_id->value;
