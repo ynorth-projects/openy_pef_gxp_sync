@@ -12,6 +12,6 @@ function openy_pef_gxp_sync_update_8001() {
     $config_importer = \Drupal::service('config_import.importer');
     $config_importer->setDirectory($path);
     $config_importer->importConfigs(
-      ['openy_pef_gxp_sync.enable_locations']
+      ['openy_pef_gxp_sync.enabled_locations']
     );
  }
