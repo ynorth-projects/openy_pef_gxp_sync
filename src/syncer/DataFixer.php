@@ -120,7 +120,7 @@ class DataFixer implements DataFixerInterface {
   public function fix() {
     $this->logger->info('%name started.', ['%name' => get_class($this)]);
     $locations = $this->mappingRepository->loadAllLocationsWithGroupExId();
-    $enableLocations = $this->configFactory->get('openy_pef_gxp_sync.enable_locations')->get('locations');
+    $enableLocations = $this->configFactory->get('openy_pef_gxp_sync.enabled_locations')->get('locations');
     // Set weeks range.
     $startWeek = new DateTime('now', new DateTimeZone(self::API_TIMEZONE));
     $startWeek->setTimestamp(strtotime("this week"));
