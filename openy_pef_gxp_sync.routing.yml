@@ -1,0 +1,7 @@
+openy_pef_gxp_sync.settings:
+  path: '/admin/openy/settings/groupex-scheduleds'
+  defaults:
+    _form: 'Drupal\openy_pef_gxp_sync\Form\PefGxpSyncSettingsForm'
+    _title: 'OpenY PEF GXP Sync settings'
+  requirements:
+    _permission: 'administer site configuration'
