@@ -8,6 +8,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Drupal\openy_mappings\LocationMappingRepository;
 
 /**
  * Configure OpenY PEF GXP Sync settings for this site.
@@ -22,16 +23,26 @@ class PefGxpSyncSettingsForm extends ConfigFormBase implements ContainerInjectio
   protected $entityTypeManager;
 
   /**
+   * Mapping repository.
+   *
+   * @var \Drupal\ymca_mappings\LocationMappingRepository
+   */
+  protected $mappingRepository;
+
+  /**
    * Constructor.
    *
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
    *   The Entity manager.
    * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
    *   The factory for configuration objects.
+   * @param \Drupal\openy_mappings\LocationMappingRepository $mappingRepository
+   *   Location mapping repo.
    */
-  public function __construct(EntityTypeManagerInterface $entity_type_manager, ConfigFactoryInterface $config_factory) {
+  public function __construct(EntityTypeManagerInterface $entity_type_manager, ConfigFactoryInterface $config_factory, LocationMappingRepository $mappingRepository) {
     parent::__construct($config_factory);
     $this->entityTypeManager = $entity_type_manager;
+    $this->mappingRepository = $mappingRepository;
   }
 
   /**
@@ -40,7 +51,8 @@ class PefGxpSyncSettingsForm extends ConfigFormBase implements ContainerInjectio
   public static function create(ContainerInterface $container) {
     return new static(
       $container->get('entity_type.manager'),
-      $container->get('config.factory')
+      $container->get('config.factory'),
+      $container->get('openy_mappings.location_repository')
     );
   }
 
@@ -64,18 +76,11 @@ class PefGxpSyncSettingsForm extends ConfigFormBase implements ContainerInjectio
   public function buildForm(array $form, FormStateInterface $form_state) {
     $enableLocations = $this->config('openy_pef_gxp_sync.enabled_locations');
 
-    $mapping_ids = $this->entityTypeManager->getStorage('mapping')
-      ->getQuery()
-      ->condition('type', 'location')
-      ->condition('field_groupex_id.value', 0, '>')
-      ->sort('name', 'ASC')
-      ->execute();
-
-    $locations_ids = $this->entityTypeManager->getStorage('mapping')->loadMultiple($mapping_ids);
+    $locations = $this->mappingRepository->loadAllLocationsWithGroupExId();
 
     // Build options list.
     $options = [];
-    foreach ($locations_ids as $location_id => $nodeType) {
+    foreach ($locations as $location_id => $nodeType) {
       $location_id = $nodeType->toArray();
       $gxp_id = $location_id['field_groupex_id'][0]['value'];
       $options[$gxp_id] = $nodeType->label();
