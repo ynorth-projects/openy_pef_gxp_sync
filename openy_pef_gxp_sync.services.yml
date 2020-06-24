@@ -71,7 +71,6 @@ services:
     arguments: []
     calls:
       - [addStep, ['@openy_pef_gxp_sync.fetcher', 'fetch']]
-      - [addStep, ['@openy_pef_gxp_sync.data_fixer', 'fix']]
       - [addStep, ['@openy_pef_gxp_sync.wrapper', 'prepare']]
       - [addStep, ['@openy_pef_gxp_sync.cleaner', 'clean']]
       - [addStep, ['@openy_pef_gxp_sync.saver', 'save']]
