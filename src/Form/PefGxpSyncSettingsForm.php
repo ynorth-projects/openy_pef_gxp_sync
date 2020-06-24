@@ -89,7 +89,7 @@ class PefGxpSyncSettingsForm extends ConfigFormBase implements ContainerInjectio
     $form['help'] = [
       '#type' => 'markup',
       '#markup' => $this
-        ->t('This configuration form enables locations to be displayed on the New Schedules experience for GroupEx classes page (/y-schedules-locations). If none locations are selected, New Schedules will display all locations by default.'),
+        ->t('This configuration form enables locations to be displayed on the New Schedules experience for GroupEx classes page (/y-schedules-locations). If none locations are selected, New Schedules will display all locations by default. See <a target=_blank href="https://youtu.be/SBdcWi8Xr-U">video overview</a> '),
     ];
 
     $form['locations'] = [
