@@ -119,10 +119,6 @@ class Saver implements SaverInterface {
 
     $data = $this->wrapper->getDataToCreate();
 
-    if (empty($data)) {
-      $this->logger->info('%name finished. Nothing new to create.', ['%name' => get_class($this)]);
-    }
-
     // Use this code debug specific items.
     if (self::DEBUG) {
       // Use for pinpoint hard items.
@@ -215,6 +211,11 @@ class Saver implements SaverInterface {
           }
         }
       }
+    }
+
+    $msg = '%name finished successfully.';
+    if (empty($data)) {
+      $msg .= ' Nothing to create.';
     }
     $this->logger->info('%name finished.', ['%name' => get_class($this)]);
   }

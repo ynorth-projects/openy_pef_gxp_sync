@@ -128,7 +128,14 @@ class Fetcher implements FetcherInterface {
       }
 
       try {
-        $this->logger->debug('Started fetching data for locationId %id', ['%id' => $locationId]);
+        $msg = 'Started fetching data for locationId %id (%name)';
+        $this->logger->debug(
+          $msg,
+          [
+            '%id' => $locationId,
+            '%name' => $location->label(),
+          ]
+        );
         $request = $this->client->request('GET', $apiPrefix . '/' . $locationGpxId);
       }
       catch (\Exception $exception) {
