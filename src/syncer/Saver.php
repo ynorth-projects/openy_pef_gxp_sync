@@ -217,7 +217,7 @@ class Saver implements SaverInterface {
     if (empty($data)) {
       $msg .= ' Nothing to create.';
     }
-    $this->logger->info('%name finished.', ['%name' => get_class($this)]);
+    $this->logger->info($msg, ['%name' => get_class($this)]);
   }
 
   /**
