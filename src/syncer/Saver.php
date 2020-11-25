@@ -278,6 +278,7 @@ class Saver implements SaverInterface {
     $session->set('field_session_room', $class['studio']);
     $session->set('field_session_instructor', $class['instructor']);
     $session->set('field_session_reg_link', $sessionRegLink);
+    $session->set('field_productid', isset($class['reservation_id']) ? $class['reservation_id'] : '');
 
     $session->setUnpublished();
 
