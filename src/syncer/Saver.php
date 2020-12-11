@@ -465,6 +465,11 @@ class Saver implements SaverInterface {
       $days = $standardPatternItems;
     }
 
+    // Set repeat for daily recurring every day.
+    if ($class['recurring'] == 'daily') {
+      $days = $standardPatternItems;
+    }
+
     if (!in_array(strtolower($class['patterns']['day']), $standardPatternItems)) {
       $message = sprintf(
         'Non supported day string was found. Class ID: %s, string: %s.',
