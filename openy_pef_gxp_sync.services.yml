@@ -76,5 +76,12 @@ services:
       - [addStep, ['@openy_pef_gxp_sync.saver', 'save']]
     tags:
       - { name: syncer }
+  openy_pef_gxp_sync.cleaner_run:
+    class: Drupal\ymca_sync\Syncer
+    arguments: []
+    calls:
+      - [addStep, ['@openy_pef_gxp_sync_mapping.repository', 'removeAll']]
+    tags:
+      - { name: syncer }
   openy_pef_gxp_sync.data_investigation_helper:
     class: Drupal\openy_pef_gxp_sync\syncer\DataInvestigationHelper
