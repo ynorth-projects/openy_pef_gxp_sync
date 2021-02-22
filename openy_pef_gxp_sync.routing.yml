@@ -1,0 +1,7 @@
+openy_pef_gxp_sync.settings:
+  path: '/admin/openy/settings/groupex-enabled-locations'
+  defaults:
+    _form: 'Drupal\openy_pef_gxp_sync\Form\PefGxpSyncSettingsForm'
+    _title: 'Enabled locations for GroupEx Pro schedule'
+  requirements:
+    _permission: 'administer site configuration'
