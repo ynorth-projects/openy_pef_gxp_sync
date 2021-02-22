@@ -1,0 +1,10 @@
+{
+  "name": "ynorth-projects/openy_pef_gxp_sync",
+  "description": "Synchronizes Groupex schedules to PEF.",
+  "type": "drupal-module",
+  "require": {
+    "ymcatwincities/yn": "*"
+  },
+  "license": "GPL-2.0+",
+  "minimum-stability": "dev"
+}
