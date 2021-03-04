@@ -441,6 +441,12 @@ class Saver implements SaverInterface {
     $startDateTime = $this->convertDateToDateTime($class['start_date'], $patterns['start_time']);
     $endDateTime = $this->convertDateToDateTime($class['end_date'], $patterns['end_time']);
 
+    // Fix midnight UTC time issue in ReapeatManager for none recurring.
+    if ($class['recurring'] == 'none') {
+      $startDateTime->modify('-6 day');
+      $endDateTime->modify('+6 day');
+    }
+
     $startDate = $startDateTime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT);
     $endDate = $endDateTime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT);
 
