@@ -63,3 +63,7 @@ In order for them to become visible in Schedules application you'd need to set c
 
 At this moment we have no UI for setting these variables, so using `drush cset` or importing configs via Config Manager is recommended.
 
+### Enabled Groupex Locations
+
+Use config `openy_pef_gxp_sync.enabled_locations` for allow locations from GroupEx PRO to be synced.
+Config contains array of location IDs from GroupEx.

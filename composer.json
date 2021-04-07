@@ -1,15 +1,18 @@
 {
-    "name": "org/openy_pef_gxp_sync",
-    "description": "This extension provides new commands for Drush.",
-    "type": "drupal-drush",
+    "name": "ynorth-projects/openy_pef_gxp_sync",
+    "description": "Synchronizes Groupex schedules to PEF.",
+    "type": "drupal-module",
     "require": {
-        "php": ">=5.6.0"
+      "ymcatwincities/yn": "*",
+      "php": ">=5.6.0"
     },
+    "license": "GPL-2.0+",
+    "minimum-stability": "dev",
     "extra": {
-        "drush": {
-            "services": {
-                "drush.services.yml": "^9"
-            }
-        }
-    }
+      "drush": {
+          "services": {
+              "drush.services.yml": "^9"
+          }
+      }
+  }
 }

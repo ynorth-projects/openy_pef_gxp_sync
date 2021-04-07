@@ -1,0 +1,6 @@
+openy_pef_gxp_sync.settings:
+  title: 'GroupEx Pro enabled locations'
+  parent: openy_system.openy_settings
+  description: 'Configure Groupex Schedules settings.'
+  route_name: openy_pef_gxp_sync.settings
+  weight: 160

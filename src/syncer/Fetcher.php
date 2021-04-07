@@ -111,10 +111,16 @@ class Fetcher implements FetcherInterface {
     $apiPrefix = self::API_URL . $clientId . '/';
 
     $locations = $this->mappingRepository->loadAllLocationsWithGroupExId();
+    $enableLocations = $this->configFactory->get('openy_pef_gxp_sync.enabled_locations')->get('locations');
 
     foreach ($locations as $location) {
       $locationGpxId = $location->field_groupex_id->value;
       $locationId = $location->field_location_ref->target_id;
+
+      // Continue if location disable.
+      if (!in_array((int) $locationGpxId, $enableLocations)) {
+        continue;
+      }
 
       if (self::DEBUG_MODE && $cachedData = $this->cacheBackend->get(get_class($this) . '_new_' . $locationId)) {
         $this->wrapper->setSourceData($locationId, $cachedData->data);
@@ -122,7 +128,14 @@ class Fetcher implements FetcherInterface {
       }
 
       try {
-        $this->logger->debug('Started fetching data for locationId %id', ['%id' => $locationId]);
+        $msg = 'Started fetching data for locationId %id (%name)';
+        $this->logger->debug(
+          $msg,
+          [
+            '%id' => $locationId,
+            '%name' => $location->label(),
+          ]
+        );
         $request = $this->client->request('GET', $apiPrefix . '/' . $locationGpxId);
       }
       catch (\Exception $exception) {
@@ -136,6 +149,16 @@ class Fetcher implements FetcherInterface {
       if (self::DEBUG_MODE) {
         $this->cacheBackend->set(get_class($this) . '_new_' . $locationId, $response);
       }
+    }
+
+    // Example of data investigation.
+    if (self::DEBUG_MODE) {
+      // Instantiate investigator service.
+      // $i = \Drupal::service('openy_pef_gxp_sync.data_investigation_helper');
+      // Set source data. Required action.
+      // $i->setData($this->wrapper->getSourceData());
+      // Run any method you are interested in or create new one.
+      // $i->getPossibleRecurringValues();
     }
 
     $this->logger->info('%name finished.', ['%name' => get_class($this)]);
