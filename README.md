@@ -61,6 +61,7 @@ In order for them to become visible in Schedules application you'd need to set c
 - config `openy_repeat.settings` - variable `allow_unpublished_references: 1` - this is for unpublished Session, Program, Program Subcategory session nodes.
 - config `openy_session_instance.settings` - variable `allow_unpublished_references: 1` - this works only for unpublished Session nodes.
 
+You need to clear cache in order to get this settings working.
 At this moment we have no UI for setting these variables, so using `drush cset` or importing configs via Config Manager is recommended.
 
 ### Enabled Groupex Locations
