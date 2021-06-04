@@ -51,7 +51,7 @@ The syncer consists of the next steps:
 
 ### Known issues in sync.
 
-1. There is an issue if class in Groupex has category set to "General" - it will not be synced and displayed at PEF.
+1. There is an issue if class in Groupex has category set to "General" - it will not be synced and displayed at PEF. This is a limitation of GroupEX PRO API.
 
 ### Default Syncer behavior
 
