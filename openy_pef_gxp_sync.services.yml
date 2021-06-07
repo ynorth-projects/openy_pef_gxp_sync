@@ -57,6 +57,7 @@ services:
       - '@openy_pef_gxp_sync.wrapper'
       - '@logger.channel.openy_pef_gxp_sync'
       - '@openy_pef_gxp_sync_mapping.repository'
+      - '@state'
   openy_pef_gxp_sync.saver:
     class: Drupal\openy_pef_gxp_sync\syncer\Saver
     arguments:
