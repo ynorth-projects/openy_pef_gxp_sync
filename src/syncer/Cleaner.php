@@ -3,6 +3,7 @@
 namespace Drupal\openy_pef_gxp_sync\syncer;
 
 use Drupal\Core\Logger\LoggerChannelInterface;
+use Drupal\Core\State\StateInterface;
 use Drupal\openy_pef_gxp_sync\OpenYPefGxpMappingRepository;
 
 /**
@@ -34,6 +35,13 @@ class Cleaner implements CleanerInterface {
   protected $mappingRepo;
 
   /**
+   * State.
+   *
+   * @var \Drupal\Core\State\StateInterface
+   */
+  protected $state;
+
+  /**
    * Cleaner constructor.
    *
    * @param \Drupal\openy_pef_gxp_sync\syncer\WrapperInterface $wrapper
@@ -42,11 +50,14 @@ class Cleaner implements CleanerInterface {
    *   LoggerChannel.
    * @param \Drupal\openy_pef_gxp_sync\OpenYPefGxpMappingRepository $openYPefGxpMappingRepository
    *   Mapping repository.
+   * @param \Drupal\Core\State\StateInterface $state
+   *   State.
    */
-  public function __construct(WrapperInterface $wrapper, LoggerChannelInterface $loggerChannel, OpenYPefGxpMappingRepository $openYPefGxpMappingRepository) {
+  public function __construct(WrapperInterface $wrapper, LoggerChannelInterface $loggerChannel, OpenYPefGxpMappingRepository $openYPefGxpMappingRepository, StateInterface $state) {
     $this->wrapper = $wrapper;
     $this->logger = $loggerChannel;
     $this->mappingRepo = $openYPefGxpMappingRepository;
+    $this->state = $state;
   }
 
   /**
@@ -65,6 +76,9 @@ class Cleaner implements CleanerInterface {
         $this->mappingRepo->removeByLocationIdAndClassId($locationId, $classId);
       }
     }
+
+    // Clear hashes data in state and unlock new sync.
+    $this->state->delete('openy_pef_gxp_sync_hashes');
 
     $this->logger->info('%name finished.', ['%name' => get_class($this)]);
   }
