@@ -61,6 +61,17 @@ In order for them to become visible in Schedules application you'd need to set c
 - config `openy_repeat.settings` - variable `allow_unpublished_references: 1` - this is for unpublished Session, Program, Program Subcategory session nodes.
 - config `openy_session_instance.settings` - variable `allow_unpublished_references: 1` - this works only for unpublished Session nodes.
 
+Run next commands if you want to switch to `published mode`:
+```
+ drush cset openy_repeat.settings allow_unpublished_references 1 -y
+ drush cset openy_session_instance.settings allow_unpublished_references 1 -y
+```
+Run next commands if you want to switch to `unpublished mode`:
+```
+ drush cset openy_repeat.settings allow_unpublished_references 0 -y
+ drush cset openy_session_instance.settings allow_unpublished_references 0 -y
+```
+
 You need to clear cache in order to get this settings working.
 At this moment we have no UI for setting these variables, so using `drush cset` or importing configs via Config Manager is recommended.
 
