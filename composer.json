@@ -3,8 +3,8 @@
     "description": "Synchronizes Groupex schedules to PEF.",
     "type": "drupal-module",
     "require": {
-      "ymcatwincities/openy": "*",
-      "php": ">=5.6.0"
+      "ycloudyusa/yusaopeny": "*",
+      "drupal/core": ">=10.0.0"
     },
     "license": "GPL-2.0+",
     "minimum-stability": "dev",
