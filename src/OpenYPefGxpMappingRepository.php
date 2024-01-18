@@ -99,7 +99,7 @@ class OpenYPefGxpMappingRepository {
     \Drupal::state()->delete('openy_pef_gxp_sync_hashes');
 
     $query = $storage->getQuery('openy_pef_gxp_mapping');
-    $ids = $query->execute();
+    $ids = $query->accessCheck()->execute();
 
     if (!$ids) {
       return;

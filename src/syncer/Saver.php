@@ -547,6 +547,7 @@ class Saver implements SaverInterface {
       ->condition('title', $class['category'])
       ->condition('type', 'activity')
       ->condition('field_activity_category', $this->programSubcategory)
+      ->accessCheck()
       ->execute();
 
     if (!$existingActivities) {
@@ -586,6 +587,7 @@ class Saver implements SaverInterface {
       ->condition('type', 'class')
       ->condition('title', $title)
       ->condition('field_class_activity', $activity->id())
+      ->accessCheck()
       ->execute();
 
     if (!empty($existingClasses)) {
