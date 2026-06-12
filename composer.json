@@ -6,6 +6,9 @@
       "ycloudyusa/yusaopeny": "*",
       "drupal/core": ">=10.0.0"
     },
+    "replace": {
+        "drupal/openy_pef_gxp_sync": "2.0.0"
+    },
     "license": "GPL-2.0+",
     "minimum-stability": "dev",
     "extra": {
